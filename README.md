@@ -1,22 +1,35 @@
-# Comics collection — read-only prototype
+# Comics collection modernization
 
-The first UI slice for the migrated comics collection. It is intentionally read-only while we validate the new data model against the legacy app.
+A replacement for the legacy Laravel comics collection application, built around the existing collection data rather than around the old framework or provider implementations.
 
-## Stack
+The project is currently read-only while the migrated data and collection UX are validated. Live valuation and intake providers come later.
+
+## Repository layout
+
+- `app/` — Astro + TypeScript application.
+- `d1/migrations/` — D1/SQLite schema.
+- `scripts/import_legacy.py` — repeatable importer for the legacy MySQL export.
+- `docs/roadmap.md` — project phases and current position.
+- `docs/reconciliation.md` — migration acceptance results.
+- `output/` — generated local database and provider archives; intentionally ignored by Git.
+
+## Current stack
 
 - Astro 7 + TypeScript
-- Tailwind CSS 4 via the Vite plugin
-- Yarn 4 with the `node_modules` linker (Vite does not recommend PnP)
+- Tailwind CSS 4
+- Yarn 4 using the `node_modules` linker
 - Node's built-in SQLite driver for local development
-- D1-compatible SQL/data model from Phase 1
-
-The repositories depend on a tiny async `QueryDatabase` interface. The local adapter is SQLite; the Cloudflare deployment will provide a D1 adapter without changing feature components or repository queries.
+- D1-compatible relational schema
 
 ## Local setup
 
-Requirements: Node 22.16+ and Corepack.
+Run the migration first if `output/comics.d1.sqlite` does not exist:
 
-The project intentionally uses Yarn 4 with `nodeLinker: node-modules`; Vite no longer recommends Yarn PnP.
+```bash
+python3 scripts/import_legacy.py /path/to/comics_20261003_1532IST-.sql
+```
+
+Then from `app/`:
 
 ```bash
 corepack enable
@@ -24,14 +37,14 @@ yarn install
 cp .env.example .env
 ```
 
-Set `COMICS_DB_PATH` to the Phase 1 SQLite database and `LEGACY_IMAGE_ROOT` to the old cover directory. For the directory layout in the migration package, this works for the database:
+Configure the local database and legacy cover directory:
 
 ```env
 COMICS_DB_PATH=../output/comics.d1.sqlite
-LEGACY_IMAGE_ROOT=/Users/you/path/to/old-comics/storage/public/images
+LEGACY_IMAGE_ROOT=/absolute/path/to/legacy/storage/public/images
 ```
 
-Verify the migrated data and image path, then run:
+Verify the local inputs and run the app:
 
 ```bash
 yarn smoke:data
@@ -39,20 +52,17 @@ yarn smoke:covers
 yarn dev
 ```
 
-`smoke:covers` reads `.env` directly and checks a sample of database cover keys against `LEGACY_IMAGE_ROOT`.
+## Migration baseline
 
-The cover route reads the legacy image directory in place, so the 952 MB archive does not need to be copied into this project. Missing covers render a neutral placeholder.
+The migrated collection reconciles to:
 
-## Implemented screens
+- 1,793 series
+- 9,401 logical issues
+- 9,577 variants
+- 9,572 holdings
+- 9,680 physical copies
+- 84 boxes
+- 30,452 creator credits
+- $52,083.29 legacy stored value
 
-- Dashboard: migrated collection totals, most valuable holdings, recovered valuation history
-- Collection: paginated/searchable series list
-- Series detail: cover and list views
-- Comic/variant detail: holding data, creators, external IDs, price history
-- Boxes: summary and visual box contents
-
-## Project boundaries
-
-Feature code lives under `src/features`. Shared presentation components live under `src/components`. SQL is kept in feature repositories rather than page components. Database runtime details live under `src/db`.
-
-The application is currently configured with the Node adapter only so it can query the migrated SQLite file directly. Cloudflare deployment is deliberately deferred until the read-only UI and migration are accepted; the next database adapter will target D1.
+The importer intentionally preserves legacy provider identities and avoids speculative deduplication. See `docs/reconciliation.md` for details.

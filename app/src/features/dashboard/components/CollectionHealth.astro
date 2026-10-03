@@ -1,0 +1,46 @@
+---
+import type { DashboardSummary } from '@/features/dashboard/types';
+import { formatInteger } from '@/lib/format';
+
+interface Props {
+  summary: DashboardSummary;
+}
+
+const { summary } = Astro.props;
+const items = [
+  {
+    label: 'Unboxed',
+    value: summary.unboxedCopies,
+    detail: 'physical copies',
+    href: '/collection?health=unboxed',
+  },
+  {
+    label: 'Missing value',
+    value: summary.unvaluedHoldings,
+    detail: 'holdings',
+    href: '/collection?health=missing-value',
+  },
+  {
+    label: 'Stored at $0',
+    value: summary.zeroValueHoldings,
+    detail: 'holdings',
+    href: '/collection?health=zero-value',
+  },
+  {
+    label: 'Stale values',
+    value: summary.staleValuedHoldings,
+    detail: 'older than 12 months',
+    href: '/collection?health=stale-value&sort=value',
+  },
+];
+---
+
+<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  {items.map((item) => (
+    <a href={item.href} class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 hover:border-zinc-700 hover:bg-zinc-900/70">
+      <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">{item.label}</p>
+      <p class="mt-2 text-2xl font-bold text-white">{formatInteger(item.value)}</p>
+      <p class="mt-1 text-xs text-zinc-600">{item.detail}</p>
+    </a>
+  ))}
+</div>

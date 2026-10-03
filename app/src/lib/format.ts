@@ -11,6 +11,12 @@ export function formatMoney(cents: number | null | undefined): string {
   return money.format(cents / 100);
 }
 
+export function formatMoneyDelta(cents: number | null | undefined): string {
+  if (cents == null) return '—';
+  const formatted = money.format(Math.abs(cents) / 100);
+  return cents > 0 ? `+${formatted}` : cents < 0 ? `−${formatted}` : formatted;
+}
+
 export function formatInteger(value: number): string {
   return integer.format(value);
 }
@@ -31,7 +37,8 @@ const date = new Intl.DateTimeFormat('en-IE', {
   year: 'numeric',
 });
 
-export function formatLegacyDateTime(value: string): string {
+export function formatLegacyDateTime(value: string | null | undefined): string {
+  if (!value) return '—';
   const parsed = new Date(`${value.replace(' ', 'T')}Z`);
   return Number.isNaN(parsed.getTime()) ? value : date.format(parsed);
 }

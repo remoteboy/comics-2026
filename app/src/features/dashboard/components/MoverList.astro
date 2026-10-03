@@ -1,0 +1,61 @@
+---
+import CoverImage from '@/components/CoverImage.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import type { ValuationChange } from '@/features/dashboard/types';
+import {
+  formatGrade,
+  formatLegacyDateTime,
+  formatMoney,
+  formatMoneyDelta,
+  formatPercent,
+} from '@/lib/format';
+
+interface Props {
+  items: ValuationChange[];
+}
+
+const { items } = Astro.props;
+---
+
+{
+  items.length ? (
+    <div class="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+      {items.map((item) => {
+        const rising = (item.deltaCents ?? 0) > 0;
+        const falling = (item.deltaCents ?? 0) < 0;
+
+        return (
+          <a
+            href={`/comics/${item.variantId}`}
+            class="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-zinc-800 p-3 last:border-0 hover:bg-zinc-900/70 sm:grid-cols-[3.5rem_minmax(0,1fr)_9rem]"
+          >
+            <CoverImage imageKey={item.imageKey} alt="" class="w-12 rounded-md sm:w-14" />
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-zinc-100">
+                {item.seriesName} #{item.issueNumber}
+              </p>
+              <p class="mt-0.5 truncate text-xs text-zinc-500">
+                {[item.variantName, `Grade ${formatGrade(item.gradeTenths)}`, formatLegacyDateTime(item.observedAt)]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+              <p class="mt-1 text-xs text-zinc-600">
+                {formatMoney(item.previousPriceCents)} → {formatMoney(item.snapshotPriceCents)}
+              </p>
+            </div>
+            <div class="text-right">
+              <p class:list={['text-sm font-semibold', rising && 'text-emerald-400', falling && 'text-rose-400', !rising && !falling && 'text-zinc-300']}>
+                {formatMoneyDelta(item.deltaCents)}
+              </p>
+              <p class:list={['mt-0.5 text-xs', rising && 'text-emerald-500', falling && 'text-rose-500', !rising && !falling && 'text-zinc-500']}>
+                {formatPercent(item.changePercent)}
+              </p>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  ) : (
+    <EmptyState title="No recovered price movements" />
+  )
+}

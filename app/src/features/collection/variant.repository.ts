@@ -9,7 +9,9 @@ import type {
 
 const db = database();
 
-export async function getVariant(id: number): Promise<VariantDetail | undefined> {
+export async function getVariant(
+  id: number,
+): Promise<VariantDetail | undefined> {
   return db.get<VariantDetail>(
     `
       SELECT
@@ -35,7 +37,9 @@ export async function getVariant(id: number): Promise<VariantDetail | undefined>
   );
 }
 
-export async function listVariantHoldings(variantId: number): Promise<HoldingListItem[]> {
+export async function listVariantHoldings(
+  variantId: number,
+): Promise<HoldingListItem[]> {
   return db.all<HoldingListItem>(
     `
       SELECT
@@ -60,7 +64,9 @@ export async function listVariantHoldings(variantId: number): Promise<HoldingLis
   );
 }
 
-export async function listVariantCredits(variantId: number): Promise<VariantCredit[]> {
+export async function listVariantCredits(
+  variantId: number,
+): Promise<VariantCredit[]> {
   return db.all<VariantCredit>(
     `
       SELECT c.name, vc.role

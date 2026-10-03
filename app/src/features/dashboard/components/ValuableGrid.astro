@@ -1,0 +1,27 @@
+---
+import CoverImage from '@/components/CoverImage.astro';
+import type { ValuableHolding } from '@/features/dashboard/types';
+import { formatGrade, formatMoney } from '@/lib/format';
+
+interface Props {
+  items: ValuableHolding[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-2">
+  {items.map((item) => (
+    <a href={`/comics/${item.variantId}`} class="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-zinc-700">
+      <CoverImage imageKey={item.imageKey} alt={`${item.seriesName} #${item.issueNumber}`} class="w-full" />
+      <div class="p-3">
+        <p class="truncate text-sm font-semibold text-zinc-100 group-hover:text-white">{item.seriesName} #{item.issueNumber}</p>
+        <p class="mt-0.5 truncate text-xs text-zinc-600">{item.variantName || 'Regular cover'}</p>
+        <div class="mt-2 flex items-center justify-between gap-2 text-xs">
+          <span class="text-zinc-500">{formatGrade(item.gradeTenths)} · {item.boxId ? `Box ${item.boxId}` : 'Unboxed'}</span>
+          <span class="font-semibold text-zinc-200">{formatMoney((item.valueCents ?? 0) * item.quantity)}</span>
+        </div>
+      </div>
+    </a>
+  ))}
+</div>

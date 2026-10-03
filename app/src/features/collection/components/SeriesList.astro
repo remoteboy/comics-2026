@@ -1,0 +1,35 @@
+---
+import type { SeriesListItem } from '@/features/collection/types';
+import { formatInteger, formatMoney } from '@/lib/format';
+
+interface Props {
+  items: SeriesListItem[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+  <div class="hidden grid-cols-[minmax(0,1fr)_7rem_7rem_8rem] gap-4 border-b border-zinc-800 bg-zinc-900/80 px-4 py-2.5 text-xs font-semibold tracking-wide text-zinc-500 uppercase md:grid">
+    <span>Series</span><span>Issues</span><span>Copies</span><span class="text-right">Value</span>
+  </div>
+  {items.map((series) => (
+    <a href={`/collection/${series.id}`} class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-zinc-800 px-4 py-3.5 last:border-0 hover:bg-zinc-900/70 md:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem] md:items-center">
+      <div class="min-w-0">
+        <div class="flex min-w-0 items-baseline gap-2">
+          <p class="truncate text-sm font-semibold text-zinc-100">{series.name}</p>
+          {series.startYear && <span class="shrink-0 text-xs text-zinc-600">{series.startYear}</span>}
+        </div>
+        <p class="mt-1 truncate text-xs text-zinc-500">
+          {series.publishers.join(' · ') || 'Publisher unknown'} · {series.status}
+        </p>
+        <p class="mt-1 text-xs text-zinc-600 md:hidden">
+          {formatInteger(series.issueCount)} issues · {formatInteger(series.variantCount)} covers · {formatInteger(series.copyCount)} copies
+        </p>
+      </div>
+      <span class="hidden text-sm text-zinc-400 md:block">{formatInteger(series.issueCount)}</span>
+      <span class="hidden text-sm text-zinc-400 md:block">{formatInteger(series.copyCount)}</span>
+      <span class="text-right text-sm font-semibold text-zinc-200">{formatMoney(series.valueCents)}</span>
+    </a>
+  ))}
+</div>

@@ -1,0 +1,67 @@
+---
+import type {
+  SeriesHealthFilter,
+  SeriesSort,
+  SeriesStatus,
+} from '@/features/collection/types';
+
+interface Props {
+  query: string;
+  status: SeriesStatus | 'all';
+  health: SeriesHealthFilter;
+  sort: SeriesSort;
+}
+
+const { query, status, health, sort } = Astro.props;
+const active = Boolean(query || status !== 'all' || health !== 'all' || sort !== 'title');
+---
+
+<form method="get" class="mb-6 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4">
+  <div class="grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_10rem_11rem_10rem_auto]">
+    <label class="block">
+      <span class="mb-1.5 block text-xs font-medium text-zinc-500">Search</span>
+      <input
+        type="search"
+        name="q"
+        value={query}
+        placeholder="Title, publisher or creator…"
+        class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+      />
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-xs font-medium text-zinc-500">Status</span>
+      <select name="status" class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none focus:border-zinc-500">
+        <option value="all" selected={status === 'all'}>All</option>
+        <option value="ongoing" selected={status === 'ongoing'}>Ongoing</option>
+        <option value="ended" selected={status === 'ended'}>Ended</option>
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-xs font-medium text-zinc-500">Collection health</span>
+      <select name="health" class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none focus:border-zinc-500">
+        <option value="all" selected={health === 'all'}>All</option>
+        <option value="missing-value" selected={health === 'missing-value'}>Missing value</option>
+        <option value="zero-value" selected={health === 'zero-value'}>Stored at $0</option>
+        <option value="unboxed" selected={health === 'unboxed'}>Unboxed</option>
+        <option value="stale-value" selected={health === 'stale-value'}>Stale value</option>
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-xs font-medium text-zinc-500">Sort</span>
+      <select name="sort" class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none focus:border-zinc-500">
+        <option value="title" selected={sort === 'title'}>Title</option>
+        <option value="value" selected={sort === 'value'}>Value</option>
+        <option value="copies" selected={sort === 'copies'}>Copies</option>
+        <option value="issues" selected={sort === 'issues'}>Issues</option>
+      </select>
+    </label>
+
+    <div class="flex items-end gap-2">
+      <button class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white">Apply</button>
+      {active && <a href="/collection" class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white">Reset</a>}
+    </div>
+  </div>
+</form>

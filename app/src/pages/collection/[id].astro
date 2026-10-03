@@ -1,67 +1,76 @@
 ---
 import AppLayout from '@/components/AppLayout.astro';
-import CoverImage from '@/components/CoverImage.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import EmptyState from '@/components/EmptyState.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import StatCard from '@/components/StatCard.astro';
+import HoldingCoverGrid from '@/features/collection/components/HoldingCoverGrid.astro';
+import HoldingList from '@/features/collection/components/HoldingList.astro';
 import { getSeries, listSeriesHoldings } from '@/features/collection/series.repository';
-import { formatGrade, formatMoney } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
 
 const id = Number(Astro.params.id);
-const [series, holdings] = await Promise.all([getSeries(id), listSeriesHoldings(id)]);
+const query = Astro.url.searchParams.get('q')?.trim() ?? '';
+const view = Astro.url.searchParams.get('view') === 'list' ? 'list' : 'covers';
+const [series, holdings] = await Promise.all([getSeries(id), listSeriesHoldings(id, query)]);
 
 if (!series) return Astro.redirect('/collection');
 
-const view = Astro.url.searchParams.get('view') === 'list' ? 'list' : 'covers';
 const title = series.name;
+const mostValuable = holdings.reduce<(typeof holdings)[number] | undefined>((best, holding) => {
+  const value = (holding.valueCents ?? 0) * holding.quantity;
+  const bestValue = best ? (best.valueCents ?? 0) * best.quantity : -1;
+  return value > bestValue ? holding : best;
+}, undefined);
+
+function viewUrl(nextView: 'covers' | 'list'): string {
+  const params = new URLSearchParams();
+  if (nextView === 'list') params.set('view', 'list');
+  if (query) params.set('q', query);
+  const suffix = params.toString();
+  return `/collection/${series.id}${suffix ? `?${suffix}` : ''}`;
+}
 ---
 
 <AppLayout title={title}>
-  <PageHeader title={title} eyebrow={series.publishers.join(' · ') || undefined}>
+  <Breadcrumbs items={[{ href: '/collection', label: 'Collection' }, { label: title }]} />
+  <PageHeader
+    title={title}
+    eyebrow={series.publishers.join(' · ') || undefined}
+    description={[series.startYear, series.status, `${series.issueCount} logical issues`].filter(Boolean).join(' · ')}
+  >
     <div slot="actions" class="flex rounded-lg border border-zinc-800 bg-zinc-900 p-1 text-sm">
-      <a href={`/collection/${series.id}`} class:list={['rounded-md px-3 py-1.5', view === 'covers' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white']}>Covers</a>
-      <a href={`/collection/${series.id}?view=list`} class:list={['rounded-md px-3 py-1.5', view === 'list' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white']}>List</a>
+      <a href={viewUrl('covers')} aria-current={view === 'covers' ? 'page' : undefined} class:list={['rounded-md px-3 py-1.5', view === 'covers' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white']}>Covers</a>
+      <a href={viewUrl('list')} aria-current={view === 'list' ? 'page' : undefined} class:list={['rounded-md px-3 py-1.5', view === 'list' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white']}>List</a>
     </div>
   </PageHeader>
 
-  <section class="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    <StatCard label="Value" value={formatMoney(series.valueCents)} />
-    <StatCard label="Owned variants" value={String(series.ownedVariants)} />
-    <StatCard label="Physical copies" value={String(series.physicalCopies)} />
-    <StatCard label="Boxes" value={String(series.boxCount)} />
+  <section class="mb-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <StatCard label="Value" value={formatMoney(series.valueCents)} detail={mostValuable ? `Top: #${mostValuable.issueNumber} · ${formatMoney((mostValuable.valueCents ?? 0) * mostValuable.quantity)}` : undefined} />
+    <StatCard label="Owned variants" value={String(series.ownedVariants)} detail={`${series.issueCount} logical issues`} />
+    <StatCard label="Physical copies" value={String(series.physicalCopies)} detail={series.unboxedCopies ? `${series.unboxedCopies} unboxed` : 'All assigned to boxes'} />
+    <StatCard label="Boxes" value={String(series.boxCount)} detail={series.unvaluedHoldings ? `${series.unvaluedHoldings} missing valuations` : 'No missing valuations'} />
   </section>
 
-  {
+  <form method="get" class="mb-6 flex flex-col gap-2 sm:flex-row">
+    {view === 'list' && <input type="hidden" name="view" value="list" />}
+    <label class="min-w-0 flex-1">
+      <span class="sr-only">Filter this series</span>
+      <input type="search" name="q" value={query} placeholder="Find issue, variant, creator or significance…" class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500" />
+    </label>
+    <div class="flex gap-2">
+      <button class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white">Filter</button>
+      {query && <a href={viewUrl(view)} class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white">Clear</a>}
+    </div>
+  </form>
+
+  {holdings.length ? (
     view === 'list' ? (
-      <div class="overflow-hidden rounded-xl border border-zinc-800">
-        <div class="hidden grid-cols-[5rem_1fr_6rem_7rem_5rem] gap-3 border-b border-zinc-800 bg-zinc-900 px-4 py-2 text-xs font-semibold tracking-wide text-zinc-500 uppercase sm:grid">
-          <span>Issue</span><span>Variant</span><span>Grade</span><span>Value</span><span>Box</span>
-        </div>
-        {holdings.map((holding) => (
-          <a href={`/comics/${holding.variantId}`} class="grid grid-cols-[4rem_1fr_auto] items-center gap-3 border-b border-zinc-800 px-4 py-3 last:border-0 hover:bg-zinc-900/70 sm:grid-cols-[5rem_1fr_6rem_7rem_5rem]">
-            <span class="text-sm font-semibold text-zinc-200">#{holding.issueNumber}</span>
-            <span class="truncate text-sm text-zinc-400">{holding.variantName || 'Regular cover'}</span>
-            <span class="hidden text-sm text-zinc-400 sm:block">{formatGrade(holding.gradeTenths)}</span>
-            <span class="text-right text-sm font-medium text-zinc-200 sm:text-left">{formatMoney(holding.valueCents)}</span>
-            <span class="hidden text-sm text-zinc-500 sm:block">{holding.boxId ?? '—'}</span>
-          </a>
-        ))}
-      </div>
+      <HoldingList holdings={holdings} seriesName={series.name} />
     ) : (
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-        {holdings.map((holding) => (
-          <a href={`/comics/${holding.variantId}`} class="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50">
-            <CoverImage imageKey={holding.imageKey} alt={`${series.name} #${holding.issueNumber}`} class="w-full" />
-            <div class="p-3">
-              <div class="flex items-start justify-between gap-2">
-                <p class="text-sm font-semibold text-zinc-100">#{holding.issueNumber}</p>
-                <p class="text-sm font-semibold text-zinc-300">{formatMoney(holding.valueCents)}</p>
-              </div>
-              <p class="mt-1 truncate text-xs text-zinc-500">{holding.variantName || `Grade ${formatGrade(holding.gradeTenths)}`}</p>
-              <p class="mt-1 text-xs text-zinc-600">{holding.boxId ? `Box ${holding.boxId}` : 'Unboxed'}</p>
-            </div>
-          </a>
-        ))}
-      </div>
+      <HoldingCoverGrid holdings={holdings} seriesName={series.name} />
     )
-  }
+  ) : (
+    <EmptyState title="No matching comics" description="Try a broader search within this series." />
+  )}
 </AppLayout>

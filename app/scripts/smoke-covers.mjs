@@ -16,13 +16,15 @@ await access(root);
 
 const db = new DatabaseSync(databasePath, { readOnly: true });
 const variants = db
-  .prepare(`
+  .prepare(
+    `
     SELECT image_key AS imageKey
     FROM variants
     WHERE image_key IS NOT NULL
     ORDER BY id
     LIMIT 50
-  `)
+  `,
+  )
   .all();
 
 let matched = 0;

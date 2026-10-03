@@ -7,14 +7,24 @@ interface Props {
 }
 
 const { variant } = Astro.props;
+const rows = [
+  ['Publisher', variant.publisherName ?? '—'],
+  ['Issue type', variant.issueType === 'annual' ? 'Annual' : 'Issue'],
+  ['Cover', variant.variantName || 'Regular cover'],
+  ['Cover price', formatMoney(variant.coverPriceCents)],
+  ['Story title', variant.storyTitle ?? '—'],
+  ['Significance', variant.firstAppearanceOf || '—'],
+];
 ---
 
 <div class="rounded-xl border border-zinc-800 p-5">
   <h2 class="font-semibold text-white">Details</h2>
-  <dl class="mt-4 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-3 text-sm">
-    <dt class="text-zinc-500">Publisher</dt><dd class="text-zinc-300">{variant.publisherName ?? '—'}</dd>
-    <dt class="text-zinc-500">Cover price</dt><dd class="text-zinc-300">{formatMoney(variant.coverPriceCents)}</dd>
-    <dt class="text-zinc-500">Story title</dt><dd class="text-zinc-300">{variant.storyTitle ?? '—'}</dd>
-    <dt class="text-zinc-500">Significance</dt><dd class="text-zinc-300">{variant.firstAppearanceOf || '—'}</dd>
+  <dl class="mt-4 space-y-3 text-sm">
+    {rows.map(([label, value]) => (
+      <div class="grid gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4">
+        <dt class="text-zinc-500">{label}</dt>
+        <dd class:list={['break-words text-zinc-300', label === 'Significance' && value !== '—' && 'text-amber-200/85']}>{value}</dd>
+      </div>
+    ))}
   </dl>
 </div>

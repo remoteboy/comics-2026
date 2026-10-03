@@ -10,11 +10,12 @@ const { references } = Astro.props;
 
 <div class="rounded-xl border border-zinc-800 p-5">
   <h2 class="font-semibold text-white">External references</h2>
+  <p class="mt-1 text-xs leading-5 text-zinc-600">Preserved provider identities from the legacy collection.</p>
   <div class="mt-4 space-y-2">
     {references.length ? references.map((reference) => (
-      <div class="flex items-center justify-between gap-4 text-sm">
+      <div class="grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-4 text-sm">
         <span class="capitalize text-zinc-500">{reference.provider.replaceAll('_', ' ')}</span>
-        <code class="text-xs text-zinc-300">{reference.externalId}</code>
+        <code class="break-all text-xs leading-5 text-zinc-300">{reference.externalId}</code>
       </div>
     )) : <p class="text-sm text-zinc-500">No external provider references stored.</p>}
   </div>

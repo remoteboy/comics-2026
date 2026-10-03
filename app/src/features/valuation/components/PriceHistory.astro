@@ -1,6 +1,11 @@
 ---
 import type { PriceSnapshot } from '@/features/valuation/types';
-import { formatGrade, formatLegacyDateTime, formatMoney } from '@/lib/format';
+import {
+  formatGrade,
+  formatLegacyDateTime,
+  formatMoney,
+  formatMoneyDelta,
+} from '@/lib/format';
 
 interface Props {
   history: PriceSnapshot[];
@@ -10,16 +15,25 @@ const { history } = Astro.props;
 ---
 
 <div class="rounded-xl border border-zinc-800 p-5">
-  <h2 class="font-semibold text-white">Price history</h2>
-  <div class="mt-4 space-y-2">
-    {history.length ? history.map((snapshot) => (
-      <div class="flex items-center justify-between gap-4 border-b border-zinc-900 py-2 text-sm last:border-0">
-        <div>
-          <p class="text-zinc-300">{formatLegacyDateTime(snapshot.observedAt)}</p>
-          <p class="text-xs text-zinc-600">{snapshot.provider} · grade {formatGrade(snapshot.gradeTenths)}</p>
+  <h2 class="font-semibold text-white">Recovered price history</h2>
+  <p class="mt-1 text-xs leading-5 text-zinc-600">Only legacy price changes were recoverable; unchanged daily observations were never stored.</p>
+  <div class="mt-4 space-y-1">
+    {history.length ? history.map((snapshot, index) => {
+      const older = history[index + 1];
+      const delta = older ? snapshot.priceCents - older.priceCents : null;
+
+      return (
+        <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-zinc-900 py-2.5 text-sm last:border-0">
+          <div>
+            <p class="text-zinc-300">{formatLegacyDateTime(snapshot.observedAt)}</p>
+            <p class="mt-0.5 text-xs text-zinc-600">{snapshot.provider} · grade {formatGrade(snapshot.gradeTenths)}</p>
+          </div>
+          <div class="text-right">
+            <p class="font-medium text-zinc-200">{formatMoney(snapshot.priceCents)}</p>
+            {delta != null && delta !== 0 && <p class:list={['mt-0.5 text-xs', delta > 0 ? 'text-emerald-500' : 'text-rose-500']}>{formatMoneyDelta(delta)}</p>}
+          </div>
         </div>
-        <span class="font-medium text-zinc-200">{formatMoney(snapshot.priceCents)}</span>
-      </div>
-    )) : <p class="text-sm text-zinc-500">No historical snapshots for this holding.</p>}
+      );
+    }) : <p class="text-sm text-zinc-500">No recovered historical changes for this holding.</p>}
   </div>
 </div>

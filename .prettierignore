@@ -1,5 +1,7 @@
-dist
-node_modules
-.yarn
+output/
+dist/
+node_modules/
+.astro/
+.yarn/
 .pnp.*
 worker-configuration.d.ts

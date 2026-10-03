@@ -12,6 +12,9 @@ const src = imageKey ? `/covers/${encodeURIComponent(imageKey)}` : '/covers/miss
 <img
   src={src}
   alt={alt}
+  width="400"
+  height="600"
   loading="lazy"
+  decoding="async"
   class:list={['aspect-[2/3] bg-zinc-900 object-cover', className]}
 />

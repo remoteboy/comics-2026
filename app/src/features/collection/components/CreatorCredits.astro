@@ -1,20 +1,22 @@
 ---
 import type { VariantCredit } from '@/features/collection/types';
+import { groupBy } from '@/lib/collections';
 
 interface Props {
   credits: VariantCredit[];
 }
 
 const { credits } = Astro.props;
+const grouped = groupBy(credits, (credit) => credit.role ?? 'credit');
 ---
 
 <div class="rounded-xl border border-zinc-800 p-5">
   <h2 class="font-semibold text-white">Creators</h2>
-  <div class="mt-4 space-y-2">
-    {credits.length ? credits.map((credit) => (
-      <div class="flex justify-between gap-4 text-sm">
-        <span class="text-zinc-300">{credit.name}</span>
-        <span class="text-zinc-600">{credit.role?.replaceAll('_', ' ') ?? 'credit'}</span>
+  <div class="mt-4 space-y-4">
+    {credits.length ? [...grouped.entries()].map(([role, items]) => (
+      <div>
+        <p class="text-xs font-semibold tracking-wide text-zinc-600 uppercase">{role.replaceAll('_', ' ')}</p>
+        <p class="mt-1.5 text-sm leading-6 text-zinc-300">{items.map((item) => item.name).join(' · ')}</p>
       </div>
     )) : <p class="text-sm text-zinc-500">No creator credits stored.</p>}
   </div>

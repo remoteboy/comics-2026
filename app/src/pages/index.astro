@@ -1,83 +1,60 @@
 ---
 import AppLayout from '@/components/AppLayout.astro';
-import CoverImage from '@/components/CoverImage.astro';
-import EmptyState from '@/components/EmptyState.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import StatCard from '@/components/StatCard.astro';
+import CollectionHealth from '@/features/dashboard/components/CollectionHealth.astro';
+import MoverList from '@/features/dashboard/components/MoverList.astro';
+import ValuableGrid from '@/features/dashboard/components/ValuableGrid.astro';
 import {
+  getBiggestRecoveredMovers,
   getDashboardSummary,
   getMostValuableHoldings,
-  getRecentValuationChanges,
 } from '@/features/dashboard/repository';
-import { formatGrade, formatInteger, formatMoney, formatPercent } from '@/lib/format';
+import { formatInteger, formatLegacyDateTime, formatMoney } from '@/lib/format';
 
-const [summary, valuable, changes] = await Promise.all([
+const [summary, valuable, movers] = await Promise.all([
   getDashboardSummary(),
-  getMostValuableHoldings(),
-  getRecentValuationChanges(),
+  getMostValuableHoldings(8),
+  getBiggestRecoveredMovers(10),
 ]);
 ---
 
 <AppLayout title="Dashboard">
   <PageHeader
     title="Collection overview"
-    description="A read-only view of the migrated collection. Values are the last prices stored by the legacy application."
+    description="Your migrated collection and recovered legacy valuation history. Live market pricing is not connected yet."
   />
 
+  <div class="mb-7 rounded-xl border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-100/80">
+    <strong class="font-semibold text-amber-200">Legacy pricing baseline.</strong>
+    The newest recovered price change is from {formatLegacyDateTime(summary.latestValuationAt)}. Treat all stored values as historical until the provider sync is rebuilt.
+  </div>
+
   <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    <StatCard label="Collection value" value={formatMoney(summary.collectionValueCents)} detail="Legacy valuation baseline" />
+    <StatCard label="Collection value" value={formatMoney(summary.collectionValueCents)} detail="Quantity-adjusted legacy value" />
     <StatCard label="Physical copies" value={formatInteger(summary.physicalCopies)} detail={`${formatInteger(summary.seriesCount)} series`} />
-    <StatCard label="Unboxed copies" value={formatInteger(summary.unboxedCopies)} detail={`${formatInteger(summary.boxedCopies)} boxed`} />
-    <StatCard label="Missing valuations" value={formatInteger(summary.unvaluedHoldings)} detail="Holdings with no stored price" />
+    <StatCard label="Storage" value={`${formatInteger(summary.boxedCopies)} boxed`} detail={`${formatInteger(summary.unboxedCopies)} copies unboxed`} />
+    <StatCard label="Price history" value={formatInteger(summary.priceSnapshotCount)} detail="Recovered change snapshots" />
   </section>
 
-  <div class="mt-10 grid gap-10 xl:grid-cols-[1.1fr_0.9fr]">
+  <div class="mt-10 grid gap-10 xl:grid-cols-[1.12fr_0.88fr]">
     <section>
-      <SectionHeader title="Recent valuation history" description="Recovered Zap price snapshots from the legacy audit trail." />
-      {
-        changes.length ? (
-          <div class="overflow-hidden rounded-xl border border-zinc-800">
-            {changes.map((item) => (
-              <a href={`/comics/${item.variantId}`} class="grid grid-cols-[3.25rem_1fr_auto] items-center gap-3 border-b border-zinc-800 bg-zinc-900/50 p-3 last:border-0 hover:bg-zinc-900">
-                <CoverImage imageKey={item.imageKey} alt="" class="w-13 rounded-md" />
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-medium text-zinc-100">{item.seriesName} #{item.issueNumber}</p>
-                  <p class="mt-0.5 truncate text-xs text-zinc-500">
-                    {[item.variantName, `Grade ${formatGrade(item.gradeTenths)}`, item.boxId ? `Box ${item.boxId}` : 'Unboxed'].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
-                <div class="text-right">
-                  <p class="text-sm font-semibold text-white">{formatMoney(item.snapshotPriceCents)}</p>
-                  <p class:list={['text-xs', item.changePercent != null && item.changePercent > 0 ? 'text-emerald-400' : 'text-zinc-500']}>
-                    {item.previousPriceCents == null ? 'historical' : formatPercent(item.changePercent)}
-                  </p>
-                </div>
-              </a>
-            ))}
-          </div>
-        ) : (
-          <EmptyState title="No price history yet" />
-        )
-      }
+      <SectionHeader
+        title="Biggest recovered moves"
+        description="Largest individual Zap price changes recoverable from the legacy audit trail. These are historical, not current market movements."
+      />
+      <MoverList items={movers} />
     </section>
 
     <section>
-      <SectionHeader title="Most valuable" description="Highest current stored values, including quantity." />
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-2">
-        {valuable.map((item) => (
-          <a href={`/comics/${item.variantId}`} class="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60">
-            <CoverImage imageKey={item.imageKey} alt={`${item.seriesName} #${item.issueNumber}`} class="w-full" />
-            <div class="p-3">
-              <p class="truncate text-sm font-medium text-zinc-100 group-hover:text-white">{item.seriesName} #{item.issueNumber}</p>
-              <div class="mt-1 flex items-center justify-between gap-2 text-xs">
-                <span class="text-zinc-500">{formatGrade(item.gradeTenths)} · {item.boxId ? `Box ${item.boxId}` : 'Unboxed'}</span>
-                <span class="font-semibold text-zinc-200">{formatMoney((item.valueCents ?? 0) * item.quantity)}</span>
-              </div>
-            </div>
-          </a>
-        ))}
-      </div>
+      <SectionHeader title="Most valuable" description="Highest stored holding values, including quantity." />
+      <ValuableGrid items={valuable} />
     </section>
   </div>
+
+  <section class="mt-10">
+    <SectionHeader title="Collection health" description="Useful cleanup and pricing gaps before live valuation is restored." />
+    <CollectionHealth summary={summary} />
+  </section>
 </AppLayout>

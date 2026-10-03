@@ -4,7 +4,9 @@ import type { PriceSnapshot } from './types';
 
 const db = database();
 
-export async function listPriceHistory(holdingId: number): Promise<PriceSnapshot[]> {
+export async function listPriceHistory(
+  holdingId: number,
+): Promise<PriceSnapshot[]> {
   return db.all<PriceSnapshot>(
     `
       SELECT

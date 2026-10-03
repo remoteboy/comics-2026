@@ -72,25 +72,44 @@
 
 ## Phase 3 — Read-only UX polish
 
-- [ ] Improve dashboard layout and hierarchy
-- [ ] Add biggest movers section
-- [ ] Add most valuable comics section
-- [ ] Add missing-valuation summary
-- [ ] Add stale-pricing summary
-- [ ] Add collection-health summary
-- [ ] Improve collection search
-- [ ] Add useful collection filters
-- [ ] Improve series sorting
-- [ ] Improve series cover view
-- [ ] Improve series list view
-- [ ] Improve comic detail page
-- [ ] Improve box navigation
-- [ ] Improve responsive/mobile behaviour
-- [ ] Add useful empty/error states
-- [ ] Review accessibility
-- [ ] Review long-title / unusual-issue-number handling
+- [x] Improve dashboard layout and hierarchy
+- [x] Add biggest movers section
+- [x] Add most valuable comics section
+- [x] Add missing-valuation summary
+- [x] Add stale-pricing summary
+- [x] Add collection-health summary
+- [x] Improve collection search
+- [x] Add useful collection filters
+- [x] Improve series sorting
+- [x] Improve series cover view
+- [x] Improve series list view
+- [x] Improve comic detail page
+- [x] Improve box navigation
+- [x] Improve responsive/mobile behaviour
+- [x] Add useful empty/error states
+- [x] Review accessibility
+- [x] Review long-title / unusual-issue-number handling
+- [x] Add changelog and advance application version to `0.2.0`
 
-## Phase 4 — Provider architecture
+## Phase 4 — Testing foundation
+
+- [ ] Add a unit/integration test runner
+- [ ] Add test scripts to the Yarn workflow
+- [ ] Add deterministic test database fixtures
+- [ ] Test collection filter parsing and URL generation
+- [ ] Test formatting and shared utility functions
+- [ ] Test collection repository queries
+- [ ] Test dashboard valuation/health queries
+- [ ] Test box repository queries and navigation
+- [ ] Test variant detail and price-history queries
+- [ ] Add regression tests for unusual issue numbers and multiple variants
+- [ ] Add regression tests for legacy `NULL`, `$0`, unboxed and multi-copy holdings
+- [ ] Add page-level smoke tests for core routes
+- [ ] Add browser-level smoke coverage for primary navigation
+- [ ] Add type-check/build/format checks suitable for CI
+- [ ] Document the local and CI testing workflow
+
+## Phase 5 — Provider architecture
 
 ### Shared provider layer
 
@@ -121,7 +140,7 @@
 - [ ] Normalize images
 - [ ] Decide whether HTML cover scraping is still required
 
-## Phase 5 — Live ZapKapow integration
+## Phase 6 — Live ZapKapow integration
 
 - [ ] Obtain fresh ZapKapow session
 - [ ] Inspect current application/network requests
@@ -136,7 +155,7 @@
 - [ ] Gracefully handle expired sessions
 - [ ] Ensure collection remains usable with Zap offline
 
-## Phase 6 — Valuation engine
+## Phase 7 — Valuation engine
 
 - [ ] Add explicit current valuation model
 - [ ] Add price snapshots
@@ -153,7 +172,7 @@
 - [ ] Add provider-sync history
 - [ ] Add valuation freshness indicators
 
-## Phase 7 — Sale intelligence
+## Phase 8 — Sale intelligence
 
 - [ ] Define configurable sale-watch thresholds
 - [ ] Add sale-candidate / watchlist screen
@@ -169,7 +188,7 @@
 - [ ] Add "research on eBay" workflow
 - [ ] Add listing-preparation workflow if useful
 
-## Phase 8 — Remaining-comics intake
+## Phase 9 — Remaining-comics intake
 
 - [ ] Search for series by name rather than provider ID
 - [ ] Add new series from provider result
@@ -189,7 +208,7 @@
 - [ ] Consider barcode lookup
 - [ ] Consider camera-assisted cover matching
 
-## Phase 9 — Image migration
+## Phase 10 — Image migration
 
 - [ ] Inventory legacy cover directory
 - [ ] Match image files to migrated variants
@@ -203,7 +222,7 @@
 - [ ] Add R2 image adapter
 - [ ] Confirm local and R2 image adapters behave identically
 
-## Phase 10 — Cloudflare deployment
+## Phase 11 — Cloudflare deployment
 
 - [ ] Add Cloudflare D1 adapter
 - [ ] Create production D1 database
@@ -218,7 +237,7 @@
 - [ ] Add deployment smoke tests
 - [ ] Validate production data against local migration baseline
 
-## Phase 11 — Release readiness
+## Phase 12 — Release readiness
 
 - [ ] Complete remaining backlog of physical comics
 - [ ] Verify important high-value comics manually
@@ -238,6 +257,8 @@
 
 ## Current position
 
-**Current phase: Phase 3 — Read-only UX polish**
+**Completed: Phase 3 — Read-only UX polish (`v0.2.0`)**
 
-The migration and application foundation are working locally against the real collection. The next focus is making the read-only application useful and pleasant before introducing live external-provider dependencies.
+**Next: Phase 4 — Testing foundation**
+
+The migrated collection is browsable locally with improved dashboard intelligence, collection search/filtering, series views, comic details and physical-box navigation. Pricing remains explicitly labelled as a legacy baseline until live provider integration and the valuation engine are restored.

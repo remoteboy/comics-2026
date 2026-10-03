@@ -1,8 +1,23 @@
+export type SeriesStatus = 'ongoing' | 'ended';
+export type SeriesHealthFilter =
+  'all' | 'missing-value' | 'zero-value' | 'unboxed' | 'stale-value';
+export type SeriesSort = 'title' | 'value' | 'copies' | 'issues';
+
+export interface SeriesListOptions {
+  query: string;
+  page: number;
+  perPage?: number;
+  status?: SeriesStatus | 'all';
+  health?: SeriesHealthFilter;
+  sort?: SeriesSort;
+}
+
 export interface SeriesListItem {
   id: number;
   name: string;
   startYear: number | null;
-  status: 'ongoing' | 'ended';
+  status: SeriesStatus;
+  publishers: string[];
   issueCount: number;
   variantCount: number;
   copyCount: number;
@@ -18,12 +33,15 @@ export interface SeriesDetail {
   id: number;
   name: string;
   startYear: number | null;
-  status: 'ongoing' | 'ended';
+  status: SeriesStatus;
   publishers: string[];
+  issueCount: number;
   ownedVariants: number;
   physicalCopies: number;
   boxCount: number;
   valueCents: number;
+  unboxedCopies: number;
+  unvaluedHoldings: number;
 }
 
 export interface HoldingListItem {

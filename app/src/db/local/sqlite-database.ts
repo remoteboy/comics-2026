@@ -14,7 +14,10 @@ export class SqliteDatabase implements QueryDatabase {
     return this.#database.prepare(sql).all(...parameters) as T[];
   }
 
-  async get<T>(sql: string, parameters: QueryParameter[] = []): Promise<T | undefined> {
+  async get<T>(
+    sql: string,
+    parameters: QueryParameter[] = [],
+  ): Promise<T | undefined> {
     return this.#database.prepare(sql).get(...parameters) as T | undefined;
   }
 }
