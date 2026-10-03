@@ -1,0 +1,207 @@
+{
+  "remote_id": "4000-767904-1",
+  "story_title": "Destiny, Part Six",
+  "number": "6",
+  "first_appearance_of": null,
+  "publisher_id": 62,
+  "details": "<p><em>END OF STORY ARC</em></p><p><em>\"DESTINY,” Part Six</em></p><p><em>It is time to leave the zone of the Destiny Man and see what other secrets the former US holds for Charlotte Graves, her brother Daniel, and the rest of the team. Not all will survive, not all will leave—but they just might learn why they’ve been brought to America, and the prize that awaits at the end of their journey through the UNDISCOVERED COUNTRY!</em></p><h4>List of covers and their creators:</h4><table data-max-width=\"true\"><thead><tr><th scope=\"col\">Cover</th><th scope=\"col\">Name</th><th scope=\"col\">Creator(s)</th><th scope=\"col\">Sidebar Location</th></tr></thead><tbody><tr><td>A</td><td>Cover A</td><td>Giuseppe Camuncoli</td><td>1</td></tr><tr><td>B</td><td>Cover B</td><td>Sean Murphy &amp; Matt Hollingsworth</td><td>2</td></tr></tbody></table>",
+  "variant": "Cover B",
+  "image": "https://comicvine1.cbsistatic.com/uploads/scale_large/6/67663/7418789-06b.jpg",
+  "response": {
+    "aliases": null,
+    "api_detail_url": "https://comicvine.gamespot.com/api/issue/4000-767904/",
+    "character_credits": [
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-160115/",
+        "id": 160115,
+        "name": "Ace Kenyatta",
+        "site_detail_url": "https://comicvine.gamespot.com/ace-kenyatta/4005-160115/"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-160112/",
+        "id": 160112,
+        "name": "Chang Enlou",
+        "site_detail_url": "https://comicvine.gamespot.com/chang-enlou/4005-160112/"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-160110/",
+        "id": 160110,
+        "name": "Charlotte Graves",
+        "site_detail_url": "https://comicvine.gamespot.com/charlotte-graves/4005-160110/"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-164295/",
+        "id": 164295,
+        "name": "Daniel Graves",
+        "site_detail_url": "https://comicvine.gamespot.com/daniel-graves/4005-164295/"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-164294/",
+        "id": 164294,
+        "name": "Destiny Man",
+        "site_detail_url": "https://comicvine.gamespot.com/destiny-man/4005-164294/"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-160113/",
+        "id": 160113,
+        "name": "Janet Worthington",
+        "site_detail_url": "https://comicvine.gamespot.com/janet-worthington/4005-160113/"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-160111/",
+        "id": 160111,
+        "name": "Pavel Bukowski",
+        "site_detail_url": "https://comicvine.gamespot.com/pavel-bukowski/4005-160111/"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-160114/",
+        "id": 160114,
+        "name": "Samuel Elgin",
+        "site_detail_url": "https://comicvine.gamespot.com/samuel-elgin/4005-160114/"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-160116/",
+        "id": 160116,
+        "name": "Valentina Sandoval",
+        "site_detail_url": "https://comicvine.gamespot.com/valentina-sandoval/4005-160116/"
+      }
+    ],
+    "character_died_in": [],
+    "concept_credits": [
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/concept/4015-57349/",
+        "id": 57349,
+        "name": "Variant Cover",
+        "site_detail_url": "https://comicvine.gamespot.com/variant-cover/4015-57349/"
+      }
+    ],
+    "cover_date": "2020-06-13",
+    "date_added": "2020-06-13 02:52:30",
+    "date_last_updated": "2020-06-13 04:16:49",
+    "deck": " ",
+    "description": "<p><em>END OF STORY ARC</em></p><p><em>\"DESTINY,” Part Six</em></p><p><em>It is time to leave the zone of the Destiny Man and see what other secrets the former US holds for Charlotte Graves, her brother Daniel, and the rest of the team. Not all will survive, not all will leave—but they just might learn why they’ve been brought to America, and the prize that awaits at the end of their journey through the UNDISCOVERED COUNTRY!</em></p><h4>List of covers and their creators:</h4><table data-max-width=\"true\"><thead><tr><th scope=\"col\">Cover</th><th scope=\"col\">Name</th><th scope=\"col\">Creator(s)</th><th scope=\"col\">Sidebar Location</th></tr></thead><tbody><tr><td>A</td><td>Cover A</td><td>Giuseppe Camuncoli</td><td>1</td></tr><tr><td>B</td><td>Cover B</td><td>Sean Murphy &amp; Matt Hollingsworth</td><td>2</td></tr></tbody></table>",
+    "first_appearance_characters": null,
+    "first_appearance_concepts": null,
+    "first_appearance_locations": null,
+    "first_appearance_objects": null,
+    "first_appearance_storyarcs": null,
+    "first_appearance_teams": null,
+    "has_staff_review": false,
+    "id": 767904,
+    "image": {
+      "icon_url": "https://comicvine1.cbsistatic.com/uploads/square_avatar/6/67663/7418771-06a.jpg",
+      "medium_url": "https://comicvine1.cbsistatic.com/uploads/scale_medium/6/67663/7418771-06a.jpg",
+      "screen_url": "https://comicvine1.cbsistatic.com/uploads/screen_medium/6/67663/7418771-06a.jpg",
+      "screen_large_url": "https://comicvine1.cbsistatic.com/uploads/screen_kubrick/6/67663/7418771-06a.jpg",
+      "small_url": "https://comicvine1.cbsistatic.com/uploads/scale_small/6/67663/7418771-06a.jpg",
+      "super_url": "https://comicvine1.cbsistatic.com/uploads/scale_large/6/67663/7418771-06a.jpg",
+      "thumb_url": "https://comicvine1.cbsistatic.com/uploads/scale_avatar/6/67663/7418771-06a.jpg",
+      "tiny_url": "https://comicvine1.cbsistatic.com/uploads/square_mini/6/67663/7418771-06a.jpg",
+      "original_url": "https://comicvine1.cbsistatic.com/uploads/original/6/67663/7418771-06a.jpg",
+      "image_tags": "All Images"
+    },
+    "issue_number": "6",
+    "location_credits": [],
+    "name": "Destiny, Part Six",
+    "object_credits": [],
+    "person_credits": [
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-60772/",
+        "id": 60772,
+        "name": "Charles Soule",
+        "site_detail_url": "https://comicvine.gamespot.com/charles-soule/4040-60772/",
+        "role": "writer"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-52438/",
+        "id": 52438,
+        "name": "Crank!",
+        "site_detail_url": "https://comicvine.gamespot.com/crank/4040-52438/",
+        "role": "letterer"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-41882/",
+        "id": 41882,
+        "name": "Giuseppe Camuncoli",
+        "site_detail_url": "https://comicvine.gamespot.com/giuseppe-camuncoli/4040-41882/",
+        "role": "artist, cover"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-108637/",
+        "id": 108637,
+        "name": "Leonardo Marcello Grassi",
+        "site_detail_url": "https://comicvine.gamespot.com/leonardo-marcello-grassi/4040-108637/",
+        "role": "artist"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-5432/",
+        "id": 5432,
+        "name": "Matt Hollingsworth",
+        "site_detail_url": "https://comicvine.gamespot.com/matt-hollingsworth/4040-5432/",
+        "role": "cover"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-46064/",
+        "id": 46064,
+        "name": "Matthew Wilson",
+        "site_detail_url": "https://comicvine.gamespot.com/matthew-wilson/4040-46064/",
+        "role": "colorist"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-107188/",
+        "id": 107188,
+        "name": "Mauro Corradini",
+        "site_detail_url": "https://comicvine.gamespot.com/mauro-corradini/4040-107188/",
+        "role": "other, designer"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-99323/",
+        "id": 99323,
+        "name": "Ryan Brewer",
+        "site_detail_url": "https://comicvine.gamespot.com/ryan-brewer/4040-99323/",
+        "role": "production, designer"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-58926/",
+        "id": 58926,
+        "name": "Scott Snyder",
+        "site_detail_url": "https://comicvine.gamespot.com/scott-snyder/4040-58926/",
+        "role": "writer"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-43937/",
+        "id": 43937,
+        "name": "Sean Gordon Murphy",
+        "site_detail_url": "https://comicvine.gamespot.com/sean-gordon-murphy/4040-43937/",
+        "role": "cover"
+      },
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/person/4040-42327/",
+        "id": 42327,
+        "name": "Will Dennis",
+        "site_detail_url": "https://comicvine.gamespot.com/will-dennis/4040-42327/",
+        "role": "editor"
+      }
+    ],
+    "site_detail_url": "https://comicvine.gamespot.com/undiscovered-country-6-destiny-part-six/4000-767904/",
+    "store_date": "2020-06-10",
+    "story_arc_credits": [
+      {
+        "api_detail_url": "https://comicvine.gamespot.com/api/story_arc/4045-60628/",
+        "id": 60628,
+        "name": "Destiny",
+        "site_detail_url": "https://comicvine.gamespot.com/destiny/4045-60628/"
+      }
+    ],
+    "team_credits": [],
+    "team_disbanded_in": [],
+    "volume": {
+      "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-122630/",
+      "id": 122630,
+      "name": "Undiscovered Country",
+      "site_detail_url": "https://comicvine.gamespot.com/undiscovered-country/4050-122630/"
+    }
+  },
+  "source": "vine",
+  "title_id": "1349"
+}

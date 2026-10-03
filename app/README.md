@@ -24,6 +24,7 @@ Cover images are served from the existing legacy image directory configured thro
 - `src/components/` — shared presentation components.
 - `src/features/` — domain-oriented collection, boxes, dashboard and valuation code.
 - `src/db/` — database interface and local adapter.
+- `src/providers/` — transport-free provider adapters and normalized provider types.
 - `src/pages/` — Astro routes kept deliberately thin.
 - `scripts/` — local migration/image checks and deterministic test DB creation.
 - `tests/unit/` — pure filter/format/helper tests.

@@ -1,0 +1,229 @@
+{
+  "remote_id": "288960",
+  "story_title": null,
+  "number": "39",
+  "first_appearance_of": "",
+  "publisher_id": 7,
+  "details": "",
+  "variant": "Variant Cover",
+  "image": "https://comics.zapkapowcomics.com/image.php?id=288960",
+  "response": {
+    "issue": {
+      "id": 288960,
+      "story_title": null,
+      "number": "39",
+      "publisher": "Image Comics",
+      "writer": "Rick Remender",
+      "penciller": "Matteo Scalera and Moreno DiNisio",
+      "inker": null,
+      "cover_artist": "Kevin Maguire",
+      "first_appearance_of": "",
+      "variant": "Variant Cover",
+      "cover_date": "March 2019",
+      "cover_price": 3.99,
+      "cover_image": 1,
+      "cover_url": "",
+      "details": "",
+      "created": "2019-03-29T08:33:01.000Z",
+      "updated": "2019-05-30T06:31:56.000Z",
+      "deleted": 0,
+      "key_issue": 0,
+      "issue_type_id": 1,
+      "issue_type_name": "Issue",
+      "favorite_type_id": 1,
+      "favorite_amounts": "1",
+      "favorite_conditions": "9.4",
+      "favorite_condition_percentages": "1",
+      "title_id": 4094,
+      "title_name": "Black Science (2013)",
+      "primary_issue_id": 188440,
+      "views": 175,
+      "price": 4,
+      "want": false,
+      "have_amount_total": 1,
+      "have_price_total": 0,
+      "conditions": {
+        "1": {
+          "condition": 1,
+          "percentage": 0.03,
+          "description": "Fair",
+          "amount": 0,
+          "price": 0.12
+        },
+        "2": {
+          "condition": 2,
+          "percentage": 0.1,
+          "description": "Good",
+          "amount": 0,
+          "price": 0.4
+        },
+        "3": {
+          "condition": 3,
+          "percentage": 0.12,
+          "description": "Good/Very Good",
+          "amount": 0,
+          "price": 0.48
+        },
+        "4": {
+          "condition": 4,
+          "percentage": 0.15,
+          "description": "Very Good",
+          "amount": 0,
+          "price": 0.6
+        },
+        "5": {
+          "condition": 5,
+          "percentage": 0.19,
+          "description": "Very Good/Fine",
+          "amount": 0,
+          "price": 0.76
+        },
+        "6": {
+          "condition": 6,
+          "percentage": 0.3,
+          "description": "Fine",
+          "amount": 0,
+          "price": 1.2
+        },
+        "7": {
+          "condition": 7,
+          "percentage": 0.55,
+          "description": "Very Fine/Fine",
+          "amount": 0,
+          "price": 2.2
+        },
+        "8": {
+          "condition": 8,
+          "percentage": 0.7,
+          "description": "Very Fine",
+          "amount": 0,
+          "price": 2.8
+        },
+        "9": {
+          "condition": 9,
+          "percentage": 0.95,
+          "description": "Very Fine/Near Mint",
+          "amount": 0,
+          "price": 3.8
+        },
+        "10": {
+          "condition": 10,
+          "percentage": 1.5,
+          "description": "Gem Mint",
+          "amount": 0,
+          "price": 6
+        },
+        "9.9": {
+          "condition": 9.9,
+          "percentage": 1.3,
+          "description": "Mint",
+          "amount": 0,
+          "price": 5
+        },
+        "9.8": {
+          "condition": 9.8,
+          "percentage": 1.25,
+          "description": "Mint",
+          "amount": 0,
+          "price": 5
+        },
+        "9.6": {
+          "condition": 9.6,
+          "percentage": 1.1,
+          "description": "Near Mint +",
+          "amount": 0,
+          "price": 4.4
+        },
+        "9.4": {
+          "condition": 9.4,
+          "percentage": 1,
+          "description": "Near Mint",
+          "amount": 1,
+          "price": 4
+        },
+        "9.2": {
+          "condition": 9.2,
+          "percentage": 0.97,
+          "description": "Near Mint -",
+          "amount": 0,
+          "price": 3.88
+        },
+        "8.5": {
+          "condition": 8.5,
+          "percentage": 0.9,
+          "description": "Very Fine +",
+          "amount": 0,
+          "price": 3.6
+        },
+        "7.5": {
+          "condition": 7.5,
+          "percentage": 0.6,
+          "description": "Very Fine -",
+          "amount": 0,
+          "price": 2.4
+        },
+        "6.5": {
+          "condition": 6.5,
+          "percentage": 0.4,
+          "description": "Fine +",
+          "amount": 0,
+          "price": 1.6
+        },
+        "5.5": {
+          "condition": 5.5,
+          "percentage": 0.21,
+          "description": "Fine -",
+          "amount": 0,
+          "price": 0.84
+        },
+        "4.5": {
+          "condition": 4.5,
+          "percentage": 0.17,
+          "description": "Very Good +",
+          "amount": 0,
+          "price": 0.68
+        },
+        "3.5": {
+          "condition": 3.5,
+          "percentage": 0.13,
+          "description": "Very Good -",
+          "amount": 0,
+          "price": 0.52
+        },
+        "2.5": {
+          "condition": 2.5,
+          "percentage": 0.11,
+          "description": "Good + ",
+          "amount": 0,
+          "price": 0.44
+        },
+        "1.8": {
+          "condition": 1.8,
+          "percentage": 0.06,
+          "description": "Good -",
+          "amount": 0,
+          "price": 0.24
+        },
+        "0.5": {
+          "condition": 0.5,
+          "percentage": 0.02,
+          "description": "Fair -",
+          "amount": 0,
+          "price": 0.08
+        }
+      },
+      "sorted_condition_keys": [
+        10, 9.9, 9.8, 9.6, 9.4, 9.2, 9, 8.5, 8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4,
+        3.5, 3, 2.5, 2, 1.8, 1, 0.5
+      ],
+      "have_total": null
+    }
+  },
+  "creators": {
+    "writer": ["Rick Remender"],
+    "penciller": ["Matteo Scalera and Moreno DiNisio"],
+    "cover_artist": ["Kevin Maguire"]
+  },
+  "source": "zap",
+  "title_id": "246"
+}

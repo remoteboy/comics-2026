@@ -1,0 +1,10 @@
+# Provider fixture provenance
+
+These fixtures are copied from the legacy export/archive and intentionally contain no live credentials.
+
+- `zap-flat-issue.json` — legacy issue `8221`, Zap issue `311140`.
+- `zap-rich-variant.json` — legacy issue `16498`, Zap variant `288960`.
+- `zap-updates.json` — exact update objects preserved in legacy update batches `1`, `5` and `23` (Zap issue IDs `49926`, `102864`, `319365`, `323239`).
+- `comic-vine-cover-b.json` — legacy issue `16428`, synthetic Comic Vine cover ID `4000-767904-1`.
+
+The archived application did not retain title-endpoint responses, so series tests intentionally normalize the series references embedded in issue responses instead of constructing fictional title payloads.
