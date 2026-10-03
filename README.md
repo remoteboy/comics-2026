@@ -12,6 +12,7 @@ The project is currently read-only while the migrated data, collection UX and pr
 - `docs/roadmap.md` — project phases and current position.
 - `docs/reconciliation.md` — migration acceptance results.
 - `docs/testing.md` — local/CI testing strategy and commands.
+- `docs/providers.md` — provider normalization boundary and recorded-data decisions.
 - `output/` — generated local database and provider archives; intentionally ignored by Git.
 
 ## Current stack
@@ -22,6 +23,7 @@ The project is currently read-only while the migrated data, collection UX and pr
 - Node's built-in SQLite driver for local development
 - D1-compatible relational schema
 - Vitest + Playwright testing
+- Transport-free ZapKapow and Comic Vine provider adapters
 
 ## Local setup
 

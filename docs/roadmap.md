@@ -115,32 +115,32 @@
 
 ### Shared provider layer
 
-- [ ] Define provider interfaces
-- [ ] Define normalized series result
-- [ ] Define normalized issue result
-- [ ] Define normalized variant result
-- [ ] Define normalized valuation result
-- [ ] Keep provider-specific payloads outside domain models
+- [x] Define provider interfaces
+- [x] Define normalized series result
+- [x] Define normalized issue result
+- [x] Define normalized variant result
+- [x] Define normalized valuation result
+- [x] Keep provider-specific payloads outside domain models
 
 ### ZapKapow
 
-- [ ] Build recorded-response Zap provider
-- [ ] Create representative Zap fixtures from legacy payloads
-- [ ] Test title normalization
-- [ ] Test issue normalization
-- [ ] Test variant normalization
-- [ ] Test creator normalization
-- [ ] Test grade-based pricing normalization
-- [ ] Test update-feed normalization
+- [x] Build recorded-response Zap provider
+- [x] Create representative Zap fixtures from legacy payloads
+- [x] Test title normalization
+- [x] Test issue normalization
+- [x] Test variant normalization
+- [x] Test creator normalization
+- [x] Test grade-based pricing normalization
+- [x] Test update-feed normalization
 
 ### Comic Vine
 
-- [ ] Build recorded-response Comic Vine provider
-- [ ] Preserve legacy synthetic cover indexes
-- [ ] Normalize title / issue metadata
-- [ ] Normalize creators
-- [ ] Normalize images
-- [ ] Decide whether HTML cover scraping is still required
+- [x] Build recorded-response Comic Vine provider
+- [x] Preserve legacy synthetic cover indexes
+- [x] Normalize title / issue metadata
+- [x] Normalize creators
+- [x] Normalize images
+- [x] Decide whether HTML cover scraping is still required
 
 ## Phase 6 — Live ZapKapow integration
 
@@ -259,8 +259,8 @@
 
 ## Current position
 
-**Completed: Phase 4 — Testing foundation (`v0.3.0`)**
+**Completed: Phase 5 — Provider architecture (`v0.4.0`)**
 
-**Next: Phase 5 — Provider architecture**
+**Next: Phase 6 — Live ZapKapow integration**
 
-The migrated collection is browsable locally and now has deterministic unit, repository integration and browser smoke coverage. Pricing remains explicitly labelled as a legacy baseline until the provider layer and live valuation sync are restored.
+The shared provider boundary and recorded-response ZapKapow/Comic Vine adapters are now covered by fixtures from the legacy archive. Phase 6 can investigate the current Zap service without coupling live HTTP/session behavior to normalization or collection domain models.

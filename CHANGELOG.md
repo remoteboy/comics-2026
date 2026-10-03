@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The project follows Semantic Versioning while the replacement application is developed.
 
+## [0.4.0] - 2026-10-03
+
+### Added
+
+- Shared transport-free provider interfaces for normalized series, issue, variant, valuation and update results.
+- Recorded-response ZapKapow adapter supporting both legacy flat and later rich payload shapes.
+- ZapKapow grade-based valuation and update-feed normalization.
+- Recorded-response Comic Vine adapter preserving synthetic cover indexes, images and person credits.
+- Provider fixtures copied from the archived legacy responses and regression tests around real response quirks.
+- Provider architecture documentation, including the Comic Vine alternate-cover discovery decision.
+
+### Changed
+
+- Application version advanced to `0.4.0`.
+- Phase 4 tooling baseline incorporates the locally verified TypeScript 6/Astro checker setup and isolated Playwright test server.
+
 ## [0.3.0] - 2026-10-03
 
 ### Added

@@ -5,7 +5,7 @@ The application uses two deliberately small testing layers:
 - **Vitest** for pure utility tests and repository integration tests against an in-memory SQLite fixture database.
 - **Playwright** for route smoke tests and a small number of browser-level navigation checks.
 
-The tests do not depend on the migrated production collection or the 952 MB legacy cover archive.
+The tests do not depend on the migrated production collection or the 952 MB legacy cover archive. Provider normalization tests use small, source-derived JSON fixtures copied from the archived legacy provider responses.
 
 ## Deterministic fixture database
 
@@ -19,6 +19,8 @@ The tests do not depend on the migrated production collection or the 952 MB lega
 - non-contiguous box IDs,
 - creator credits and provider references,
 - recovered price history.
+
+Provider fixtures under `app/tests/fixtures/providers/` cover both generations of recorded Zap responses, stored Zap update events and a Comic Vine alternate-cover record. These fixtures contain no live credentials.
 
 Integration tests load the real D1 schema into an in-memory SQLite database and then apply this seed data. Playwright uses the same fixture to create `app/.test/comics.sqlite` before starting Astro.
 
