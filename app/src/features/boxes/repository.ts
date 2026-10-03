@@ -1,4 +1,5 @@
 import { database } from '@/db';
+import type { QueryDatabase } from '@/db/database';
 
 import type {
   BoxDetail,
@@ -8,11 +9,10 @@ import type {
   HoldingListItemWithSeries,
 } from './types';
 
-const db = database();
-
 export async function listBoxes(
   query = '',
   type: BoxType | 'all' = 'all',
+  db: QueryDatabase = database(),
 ): Promise<BoxListItem[]> {
   const clauses: string[] = [];
   const parameters: (string | number)[] = [];
@@ -52,7 +52,10 @@ export async function listBoxes(
   );
 }
 
-export async function getBox(id: number): Promise<BoxDetail | undefined> {
+export async function getBox(
+  id: number,
+  db: QueryDatabase = database(),
+): Promise<BoxDetail | undefined> {
   const box = await db.get<BoxListItem>(
     `
       SELECT
@@ -103,7 +106,10 @@ export async function getBox(id: number): Promise<BoxDetail | undefined> {
   return { ...box, holdings };
 }
 
-export async function getBoxNavigation(id: number): Promise<BoxNavigation> {
+export async function getBoxNavigation(
+  id: number,
+  db: QueryDatabase = database(),
+): Promise<BoxNavigation> {
   const row = await db.get<BoxNavigation>(
     `
       SELECT

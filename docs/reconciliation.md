@@ -6,19 +6,19 @@ The importer completed successfully against the supplied dump.
 
 ## Core preservation checks
 
-| Check | Legacy | Migrated | Result |
-|---|---:|---:|---|
-| Series | 1,793 | 1,793 | PASS |
-| Legacy variant rows | 9,577 | 9,577 | PASS |
-| Holdings | 9,572 | 9,572 | PASS |
-| Physical quantity | 9,680 | 9,680 | PASS |
-| Boxes | 84 | 84 | PASS |
-| Creator credits | 30,452 | 30,452 | PASS |
-| Publishers | 90 | 90 | PASS |
-| Creators | 2,038 | 2,038 | PASS |
-| Zap variant references | 9,448 | 9,448 | PASS |
-| Comic Vine variant references | 130 | 130 | PASS |
-| Aggregate collection value | $52,083.29 | $52,083.29 | PASS |
+| Check                         |     Legacy |   Migrated | Result |
+| ----------------------------- | ---------: | ---------: | ------ |
+| Series                        |      1,793 |      1,793 | PASS   |
+| Legacy variant rows           |      9,577 |      9,577 | PASS   |
+| Holdings                      |      9,572 |      9,572 | PASS   |
+| Physical quantity             |      9,680 |      9,680 | PASS   |
+| Boxes                         |         84 |         84 | PASS   |
+| Creator credits               |     30,452 |     30,452 | PASS   |
+| Publishers                    |         90 |         90 | PASS   |
+| Creators                      |      2,038 |      2,038 | PASS   |
+| Zap variant references        |      9,448 |      9,448 | PASS   |
+| Comic Vine variant references |        130 |        130 | PASS   |
+| Aggregate collection value    | $52,083.29 | $52,083.29 | PASS   |
 
 SQLite `PRAGMA integrity_check` returns `ok` and `PRAGMA foreign_key_check` returns zero violations.
 

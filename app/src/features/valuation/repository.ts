@@ -1,11 +1,11 @@
 import { database } from '@/db';
+import type { QueryDatabase } from '@/db/database';
 
 import type { PriceSnapshot } from './types';
 
-const db = database();
-
 export async function listPriceHistory(
   holdingId: number,
+  db: QueryDatabase = database(),
 ): Promise<PriceSnapshot[]> {
   return db.all<PriceSnapshot>(
     `

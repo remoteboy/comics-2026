@@ -2,7 +2,7 @@
 
 A replacement for the legacy Laravel comics collection application, built around the existing collection data rather than around the old framework or provider implementations.
 
-The project is currently read-only while the migrated data and collection UX are validated. Live valuation and intake providers come later.
+The project is currently read-only while the migrated data, collection UX and provider boundaries are validated. Live valuation and intake providers come later.
 
 ## Repository layout
 
@@ -11,6 +11,7 @@ The project is currently read-only while the migrated data and collection UX are
 - `scripts/import_legacy.py` — repeatable importer for the legacy MySQL export.
 - `docs/roadmap.md` — project phases and current position.
 - `docs/reconciliation.md` — migration acceptance results.
+- `docs/testing.md` — local/CI testing strategy and commands.
 - `output/` — generated local database and provider archives; intentionally ignored by Git.
 
 ## Current stack
@@ -20,6 +21,7 @@ The project is currently read-only while the migrated data and collection UX are
 - Yarn 4 using the `node_modules` linker
 - Node's built-in SQLite driver for local development
 - D1-compatible relational schema
+- Vitest + Playwright testing
 
 ## Local setup
 
@@ -49,6 +51,8 @@ Verify the local inputs and run the app:
 ```bash
 yarn smoke:data
 yarn smoke:covers
+yarn test
+yarn test:e2e
 yarn dev
 ```
 

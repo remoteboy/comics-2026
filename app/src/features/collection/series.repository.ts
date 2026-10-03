@@ -1,4 +1,5 @@
 import { database } from '@/db';
+import type { QueryDatabase } from '@/db/database';
 
 import { seriesSortSql, seriesWhere } from './series-query';
 import type {
@@ -8,10 +9,9 @@ import type {
   SeriesListResult,
 } from './types';
 
-const db = database();
-
 export async function listSeries(
   options: SeriesListOptions,
+  db: QueryDatabase = database(),
 ): Promise<SeriesListResult> {
   const perPage = options.perPage ?? 40;
   const { sql: where, parameters } = seriesWhere(options);
@@ -60,7 +60,10 @@ export async function listSeries(
   };
 }
 
-export async function getSeries(id: number): Promise<SeriesDetail | undefined> {
+export async function getSeries(
+  id: number,
+  db: QueryDatabase = database(),
+): Promise<SeriesDetail | undefined> {
   const row = await db.get<
     Omit<SeriesDetail, 'publishers'> & { publishers: string | null }
   >(
@@ -77,7 +80,7 @@ export async function getSeries(id: number): Promise<SeriesDetail | undefined> {
         COUNT(DISTINCT h.box_id) AS boxCount,
         COALESCE(SUM(COALESCE(h.current_value_cents, 0) * h.quantity), 0) AS valueCents,
         COALESCE(SUM(CASE WHEN h.box_id IS NULL THEN h.quantity ELSE 0 END), 0) AS unboxedCopies,
-        COALESCE(SUM(CASE WHEN h.current_value_cents IS NULL THEN 1 ELSE 0 END), 0) AS unvaluedHoldings
+        COALESCE(SUM(CASE WHEN h.id IS NOT NULL AND h.current_value_cents IS NULL THEN 1 ELSE 0 END), 0) AS unvaluedHoldings
       FROM series s
       LEFT JOIN issues i ON i.series_id = s.id
       LEFT JOIN variants v ON v.issue_id = i.id
@@ -96,6 +99,7 @@ export async function getSeries(id: number): Promise<SeriesDetail | undefined> {
 export async function listSeriesHoldings(
   seriesId: number,
   query = '',
+  db: QueryDatabase = database(),
 ): Promise<HoldingListItem[]> {
   const search = `%${query.trim()}%`;
   const hasQuery = Boolean(query.trim());

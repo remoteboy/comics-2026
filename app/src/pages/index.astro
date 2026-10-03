@@ -27,15 +27,35 @@ const [summary, valuable, movers] = await Promise.all([
   />
 
   <div class="mb-7 rounded-xl border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-100/80">
-    <strong class="font-semibold text-amber-200">Legacy pricing baseline.</strong>
-    The newest recovered price change is from {formatLegacyDateTime(summary.latestValuationAt)}. Treat all stored values as historical until the provider sync is rebuilt.
+    <strong class="font-semibold text-amber-200">
+      Legacy pricing baseline.
+    </strong>
+    The newest recovered price change is from{' '}
+    {formatLegacyDateTime(summary.latestValuationAt)}. Treat all stored values
+    as historical until the provider sync is rebuilt.
   </div>
 
   <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    <StatCard label="Collection value" value={formatMoney(summary.collectionValueCents)} detail="Quantity-adjusted legacy value" />
-    <StatCard label="Physical copies" value={formatInteger(summary.physicalCopies)} detail={`${formatInteger(summary.seriesCount)} series`} />
-    <StatCard label="Storage" value={`${formatInteger(summary.boxedCopies)} boxed`} detail={`${formatInteger(summary.unboxedCopies)} copies unboxed`} />
-    <StatCard label="Price history" value={formatInteger(summary.priceSnapshotCount)} detail="Recovered change snapshots" />
+    <StatCard
+      label="Collection value"
+      value={formatMoney(summary.collectionValueCents)}
+      detail="Quantity-adjusted legacy value"
+    />
+    <StatCard
+      label="Physical copies"
+      value={formatInteger(summary.physicalCopies)}
+      detail={`${formatInteger(summary.seriesCount)} series`}
+    />
+    <StatCard
+      label="Storage"
+      value={`${formatInteger(summary.boxedCopies)} boxed`}
+      detail={`${formatInteger(summary.unboxedCopies)} copies unboxed`}
+    />
+    <StatCard
+      label="Price history"
+      value={formatInteger(summary.priceSnapshotCount)}
+      detail="Recovered change snapshots"
+    />
   </section>
 
   <div class="mt-10 grid gap-10 xl:grid-cols-[1.12fr_0.88fr]">
@@ -48,13 +68,19 @@ const [summary, valuable, movers] = await Promise.all([
     </section>
 
     <section>
-      <SectionHeader title="Most valuable" description="Highest stored holding values, including quantity." />
+      <SectionHeader
+        title="Most valuable"
+        description="Highest stored holding values, including quantity."
+      />
       <ValuableGrid items={valuable} />
     </section>
   </div>
 
   <section class="mt-10">
-    <SectionHeader title="Collection health" description="Useful cleanup and pricing gaps before live valuation is restored." />
+    <SectionHeader
+      title="Collection health"
+      description="Useful cleanup and pricing gaps before live valuation is restored."
+    />
     <CollectionHealth summary={summary} />
   </section>
 </AppLayout>

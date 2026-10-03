@@ -11,13 +11,22 @@ const { boxes } = Astro.props;
 
 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
   {boxes.map((box) => (
-    <a href={`/boxes/${box.id}`} class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 hover:border-zinc-700 hover:bg-zinc-900">
+    <a
+      href={`/boxes/${box.id}`}
+      class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 hover:border-zinc-700 hover:bg-zinc-900"
+    >
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-xl font-bold text-white">{box.label || `Box ${box.id}`}</p>
-          <p class="mt-1 text-xs font-medium tracking-wide text-zinc-500 uppercase">{box.type} · #{box.id}</p>
+          <p class="text-xl font-bold text-white">
+            {box.label || `Box ${box.id}`}
+          </p>
+          <p class="mt-1 text-xs font-medium tracking-wide text-zinc-500 uppercase">
+            {box.type} · #{box.id}
+          </p>
         </div>
-        <p class="text-sm font-semibold text-zinc-200">{formatMoney(box.valueCents)}</p>
+        <p class="text-sm font-semibold text-zinc-200">
+          {formatMoney(box.valueCents)}
+        </p>
       </div>
       <div class="mt-5 flex gap-4 text-sm text-zinc-400">
         <span>{formatInteger(box.copyCount)} copies</span>

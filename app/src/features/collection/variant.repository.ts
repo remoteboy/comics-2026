@@ -1,4 +1,5 @@
 import { database } from '@/db';
+import type { QueryDatabase } from '@/db/database';
 
 import type {
   ExternalReference,
@@ -7,10 +8,9 @@ import type {
   VariantDetail,
 } from './types';
 
-const db = database();
-
 export async function getVariant(
   id: number,
+  db: QueryDatabase = database(),
 ): Promise<VariantDetail | undefined> {
   return db.get<VariantDetail>(
     `
@@ -39,6 +39,7 @@ export async function getVariant(
 
 export async function listVariantHoldings(
   variantId: number,
+  db: QueryDatabase = database(),
 ): Promise<HoldingListItem[]> {
   return db.all<HoldingListItem>(
     `
@@ -66,6 +67,7 @@ export async function listVariantHoldings(
 
 export async function listVariantCredits(
   variantId: number,
+  db: QueryDatabase = database(),
 ): Promise<VariantCredit[]> {
   return db.all<VariantCredit>(
     `
@@ -81,6 +83,7 @@ export async function listVariantCredits(
 
 export async function listVariantExternalReferences(
   variantId: number,
+  db: QueryDatabase = database(),
 ): Promise<ExternalReference[]> {
   return db.all<ExternalReference>(
     `

@@ -23,7 +23,14 @@ const rows = [
     {rows.map(([label, value]) => (
       <div class="grid gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4">
         <dt class="text-zinc-500">{label}</dt>
-        <dd class:list={['break-words text-zinc-300', label === 'Significance' && value !== '—' && 'text-amber-200/85']}>{value}</dd>
+        <dd
+          class:list={[
+            'break-words text-zinc-300',
+            label === 'Significance' && value !== '—' && 'text-amber-200/85',
+          ]}
+        >
+          {value}
+        </dd>
       </div>
     ))}
   </dl>

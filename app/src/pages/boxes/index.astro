@@ -13,27 +13,68 @@ const active = Boolean(filters.query || filters.type !== 'all');
 ---
 
 <AppLayout title="Boxes">
-  <PageHeader title="Boxes" description={`${formatInteger(boxes.length)}${active ? ' matching' : ''} physical storage boxes.`} />
+  <PageHeader
+    title="Boxes"
+    description={`${formatInteger(boxes.length)}${active ? ' matching' : ''} physical storage boxes.`}
+  />
 
-  <form method="get" class="mb-6 grid gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4 sm:grid-cols-[minmax(0,1fr)_11rem_auto]">
+  <form
+    method="get"
+    class="mb-6 grid gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4 sm:grid-cols-[minmax(0,1fr)_11rem_auto]"
+  >
     <label>
-      <span class="mb-1.5 block text-xs font-medium text-zinc-500">Find box</span>
-      <input type="search" name="q" value={filters.query} placeholder="Box number or label…" class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500" />
+      <span class="mb-1.5 block text-xs font-medium text-zinc-500">
+        Find box
+      </span>
+      <input
+        type="search"
+        name="q"
+        value={filters.query}
+        placeholder="Box number or label…"
+        class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+      />
     </label>
     <label>
       <span class="mb-1.5 block text-xs font-medium text-zinc-500">Type</span>
-      <select name="type" class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none focus:border-zinc-500">
-        <option value="all" selected={filters.type === 'all'}>All</option>
-        <option value="short" selected={filters.type === 'short'}>Short</option>
-        <option value="long" selected={filters.type === 'long'}>Long</option>
-        <option value="magazine" selected={filters.type === 'magazine'}>Magazine</option>
+      <select
+        name="type"
+        class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none focus:border-zinc-500"
+      >
+        <option value="all" selected={filters.type === 'all'}>
+          All
+        </option>
+        <option value="short" selected={filters.type === 'short'}>
+          Short
+        </option>
+        <option value="long" selected={filters.type === 'long'}>
+          Long
+        </option>
+        <option value="magazine" selected={filters.type === 'magazine'}>
+          Magazine
+        </option>
       </select>
     </label>
     <div class="flex items-end gap-2">
-      <button class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white">Apply</button>
-      {active && <a href="/boxes" class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white">Reset</a>}
+      <button class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white">
+        Apply
+      </button>
+      {active && (
+        <a
+          href="/boxes"
+          class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white"
+        >
+          Reset
+        </a>
+      )}
     </div>
   </form>
 
-  {boxes.length ? <BoxGrid boxes={boxes} /> : <EmptyState title="No matching boxes" description="Try another box number or storage type." />}
+  {boxes.length ? (
+    <BoxGrid boxes={boxes} />
+  ) : (
+    <EmptyState
+      title="No matching boxes"
+      description="Try another box number or storage type."
+    />
+  )}
 </AppLayout>

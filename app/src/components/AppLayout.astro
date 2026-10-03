@@ -26,15 +26,31 @@ const navigation = [
     <title>{title} · Comics</title>
   </head>
   <body>
-    <a href="#main-content" class="sr-only z-50 rounded-md bg-white px-3 py-2 text-sm font-semibold text-zinc-950 focus:not-sr-only focus:fixed focus:top-3 focus:left-3">Skip to content</a>
+    <a
+      href="#main-content"
+      class="sr-only z-50 rounded-md bg-white px-3 py-2 text-sm font-semibold text-zinc-950 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+    >
+      Skip to content
+    </a>
     <div class="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
       <aside class="border-b border-zinc-800 bg-zinc-950 lg:min-h-screen lg:border-r lg:border-b-0">
         <div class="lg:sticky lg:top-0 lg:px-6 lg:py-7">
           <div class="flex items-center gap-5 overflow-x-auto px-4 py-3 lg:block lg:px-0 lg:py-0">
-            <a href="/" class="shrink-0 text-xl font-black tracking-tight text-white">Comics</a>
-            <nav aria-label="Primary" class="flex shrink-0 gap-1 lg:mt-8 lg:block lg:space-y-1">
+            <a
+              href="/"
+              class="shrink-0 text-xl font-black tracking-tight text-white"
+            >
+              Comics
+            </a>
+            <nav
+              aria-label="Primary"
+              class="flex shrink-0 gap-1 lg:mt-8 lg:block lg:space-y-1"
+            >
               {navigation.map((item) => {
-                const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+                const active =
+                  item.href === '/'
+                    ? pathname === '/'
+                    : pathname.startsWith(item.href);
 
                 return (
                   <a

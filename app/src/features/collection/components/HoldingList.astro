@@ -14,22 +14,51 @@ const { holdings, seriesName } = Astro.props;
 <div class="overflow-x-auto rounded-xl border border-zinc-800">
   <div class="min-w-[48rem]">
     <div class="grid grid-cols-[4rem_5rem_minmax(12rem,1fr)_5rem_4rem_7rem_5rem] gap-3 border-b border-zinc-800 bg-zinc-900 px-4 py-2.5 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-      <span>Issue</span><span>Cover</span><span>Variant / significance</span><span>Grade</span><span>Qty</span><span>Value</span><span>Box</span>
+      <span>Issue</span>
+      <span>Cover</span>
+      <span>Variant / significance</span>
+      <span>Grade</span>
+      <span>Qty</span>
+      <span>Value</span>
+      <span>Box</span>
     </div>
     {holdings.map((holding) => (
-      <a href={`/comics/${holding.variantId}`} class="grid grid-cols-[4rem_5rem_minmax(12rem,1fr)_5rem_4rem_7rem_5rem] items-center gap-3 border-b border-zinc-800 px-4 py-2.5 last:border-0 hover:bg-zinc-900/70">
+      <a
+        href={`/comics/${holding.variantId}`}
+        class="grid grid-cols-[4rem_5rem_minmax(12rem,1fr)_5rem_4rem_7rem_5rem] items-center gap-3 border-b border-zinc-800 px-4 py-2.5 last:border-0 hover:bg-zinc-900/70"
+      >
         <div>
-          <p class="text-sm font-semibold text-zinc-200">#{holding.issueNumber}</p>
-          {holding.issueType === 'annual' && <p class="mt-0.5 text-[10px] font-semibold text-zinc-600 uppercase">Annual</p>}
+          <p class="text-sm font-semibold text-zinc-200">
+            #{holding.issueNumber}
+          </p>
+          {holding.issueType === 'annual' && (
+            <p class="mt-0.5 text-[10px] font-semibold text-zinc-600 uppercase">
+              Annual
+            </p>
+          )}
         </div>
-        <CoverImage imageKey={holding.imageKey} alt={`${seriesName} #${holding.issueNumber}`} class="w-10 rounded" />
+        <CoverImage
+          imageKey={holding.imageKey}
+          alt={`${seriesName} #${holding.issueNumber}`}
+          class="w-10 rounded"
+        />
         <div class="min-w-0">
-          <p class="truncate text-sm text-zinc-300">{holding.variantName || 'Regular cover'}</p>
-          {holding.firstAppearanceOf && <p class="mt-0.5 truncate text-xs text-amber-300/70">{holding.firstAppearanceOf}</p>}
+          <p class="truncate text-sm text-zinc-300">
+            {holding.variantName || 'Regular cover'}
+          </p>
+          {holding.firstAppearanceOf && (
+            <p class="mt-0.5 truncate text-xs text-amber-300/70">
+              {holding.firstAppearanceOf}
+            </p>
+          )}
         </div>
-        <span class="text-sm text-zinc-400">{formatGrade(holding.gradeTenths)}</span>
+        <span class="text-sm text-zinc-400">
+          {formatGrade(holding.gradeTenths)}
+        </span>
         <span class="text-sm text-zinc-400">{holding.quantity}</span>
-        <span class="text-sm font-medium text-zinc-200">{formatMoney(holding.valueCents)}</span>
+        <span class="text-sm font-medium text-zinc-200">
+          {formatMoney(holding.valueCents)}
+        </span>
         <span class="text-sm text-zinc-500">{holding.boxId ?? '—'}</span>
       </a>
     ))}

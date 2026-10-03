@@ -10,7 +10,9 @@ const { title, description } = Astro.props;
 <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
   <div>
     <h2 class="text-lg font-semibold text-white">{title}</h2>
-    {description && <p class="mt-1 max-w-3xl text-sm text-zinc-500">{description}</p>}
+    {description && (
+      <p class="mt-1 max-w-3xl text-sm text-zinc-500">{description}</p>
+    )}
   </div>
   <slot name="actions" />
 </div>

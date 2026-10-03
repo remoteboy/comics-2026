@@ -93,21 +93,23 @@
 
 ## Phase 4 — Testing foundation
 
-- [ ] Add a unit/integration test runner
-- [ ] Add test scripts to the Yarn workflow
-- [ ] Add deterministic test database fixtures
-- [ ] Test collection filter parsing and URL generation
-- [ ] Test formatting and shared utility functions
-- [ ] Test collection repository queries
-- [ ] Test dashboard valuation/health queries
-- [ ] Test box repository queries and navigation
-- [ ] Test variant detail and price-history queries
-- [ ] Add regression tests for unusual issue numbers and multiple variants
-- [ ] Add regression tests for legacy `NULL`, `$0`, unboxed and multi-copy holdings
-- [ ] Add page-level smoke tests for core routes
-- [ ] Add browser-level smoke coverage for primary navigation
-- [ ] Add type-check/build/format checks suitable for CI
-- [ ] Document the local and CI testing workflow
+- [x] Add a unit/integration test runner
+- [x] Add test scripts to the Yarn workflow
+- [x] Add deterministic test database fixtures
+- [x] Test collection filter parsing and URL generation
+- [x] Test formatting and shared utility functions
+- [x] Test collection repository queries
+- [x] Test dashboard valuation/health queries
+- [x] Test box repository queries and navigation
+- [x] Test variant detail and price-history queries
+- [x] Add regression tests for unusual issue numbers and multiple variants
+- [x] Add regression tests for legacy `NULL`, `$0`, unboxed and multi-copy holdings
+- [x] Add page-level smoke tests for core routes
+- [x] Add browser-level smoke coverage for primary navigation
+- [x] Add type-check/build/format checks suitable for CI
+- [x] Document the local and CI testing workflow
+- [x] Add GitHub Actions CI workflow
+- [x] Advance application version to `0.3.0`
 
 ## Phase 5 — Provider architecture
 
@@ -257,8 +259,8 @@
 
 ## Current position
 
-**Completed: Phase 3 — Read-only UX polish (`v0.2.0`)**
+**Completed: Phase 4 — Testing foundation (`v0.3.0`)**
 
-**Next: Phase 4 — Testing foundation**
+**Next: Phase 5 — Provider architecture**
 
-The migrated collection is browsable locally with improved dashboard intelligence, collection search/filtering, series views, comic details and physical-box navigation. Pricing remains explicitly labelled as a legacy baseline until live provider integration and the valuation engine are restored.
+The migrated collection is browsable locally and now has deterministic unit, repository integration and browser smoke coverage. Pricing remains explicitly labelled as a legacy baseline until the provider layer and live valuation sync are restored.

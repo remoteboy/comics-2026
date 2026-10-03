@@ -6,7 +6,9 @@ interface Props {
 }
 
 const { imageKey, alt, class: className = '' } = Astro.props;
-const src = imageKey ? `/covers/${encodeURIComponent(imageKey)}` : '/covers/missing.jpg';
+const src = imageKey
+  ? `/covers/${encodeURIComponent(imageKey)}`
+  : '/covers/missing.jpg';
 ---
 
 <img

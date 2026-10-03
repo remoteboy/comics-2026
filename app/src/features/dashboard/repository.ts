@@ -1,4 +1,5 @@
 import { database } from '@/db';
+import type { QueryDatabase } from '@/db/database';
 
 import type {
   DashboardSummary,
@@ -6,9 +7,9 @@ import type {
   ValuationChange,
 } from './types';
 
-const db = database();
-
-export async function getDashboardSummary(): Promise<DashboardSummary> {
+export async function getDashboardSummary(
+  db: QueryDatabase = database(),
+): Promise<DashboardSummary> {
   const row = await db.get<DashboardSummary>(`
     SELECT
       COALESCE(SUM(COALESCE(current_value_cents, 0) * quantity), 0) AS collectionValueCents,
@@ -38,6 +39,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 
 export async function getMostValuableHoldings(
   limit = 8,
+  db: QueryDatabase = database(),
 ): Promise<ValuableHolding[]> {
   return db.all<ValuableHolding>(
     `
@@ -66,6 +68,7 @@ export async function getMostValuableHoldings(
 
 export async function getBiggestRecoveredMovers(
   limit = 10,
+  db: QueryDatabase = database(),
 ): Promise<ValuationChange[]> {
   return db.all<ValuationChange>(
     `
@@ -120,6 +123,7 @@ export async function getBiggestRecoveredMovers(
 
 export async function getRecentValuationChanges(
   limit = 8,
+  db: QueryDatabase = database(),
 ): Promise<ValuationChange[]> {
   return db.all<ValuationChange>(
     `

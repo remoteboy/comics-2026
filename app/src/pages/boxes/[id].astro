@@ -17,8 +17,24 @@ const title = box.label || `Box ${box.id}`;
   <Breadcrumbs items={[{ href: '/boxes', label: 'Boxes' }, { label: title }]} />
   <PageHeader title={title} eyebrow={`${box.type} box · #${box.id}`}>
     <div slot="actions" class="flex gap-2">
-      {navigation.previousId && <a href={`/boxes/${navigation.previousId}`} aria-label={`Previous box, ${navigation.previousId}`} class="rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">← {navigation.previousId}</a>}
-      {navigation.nextId && <a href={`/boxes/${navigation.nextId}`} aria-label={`Next box, ${navigation.nextId}`} class="rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">{navigation.nextId} →</a>}
+      {navigation.previousId && (
+        <a
+          href={`/boxes/${navigation.previousId}`}
+          aria-label={`Previous box, ${navigation.previousId}`}
+          class="rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+        >
+          ← {navigation.previousId}
+        </a>
+      )}
+      {navigation.nextId && (
+        <a
+          href={`/boxes/${navigation.nextId}`}
+          aria-label={`Next box, ${navigation.nextId}`}
+          class="rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+        >
+          {navigation.nextId} →
+        </a>
+      )}
     </div>
   </PageHeader>
 

@@ -4,7 +4,10 @@ import EmptyState from '@/components/EmptyState.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import SeriesFilters from '@/features/collection/components/SeriesFilters.astro';
 import SeriesList from '@/features/collection/components/SeriesList.astro';
-import { collectionFilters, collectionUrl } from '@/features/collection/filters';
+import {
+  collectionFilters,
+  collectionUrl,
+} from '@/features/collection/filters';
 import { listSeries } from '@/features/collection/series.repository';
 import { formatInteger } from '@/lib/format';
 import { positiveInt } from '@/lib/pagination';
@@ -17,16 +20,20 @@ const pages = Math.max(1, Math.ceil(result.total / perPage));
 const currentPage = Math.min(page, pages);
 const filtered = Boolean(
   filters.query ||
-    filters.status !== 'all' ||
-    filters.health !== 'all' ||
-    filters.sort !== 'title',
+  filters.status !== 'all' ||
+  filters.health !== 'all' ||
+  filters.sort !== 'title',
 );
 ---
 
 <AppLayout title="Collection">
   <PageHeader
     title="Collection"
-    description={filtered ? `${formatInteger(result.total)} matching series.` : `${formatInteger(result.total)} series in the migrated collection.`}
+    description={
+      filtered
+        ? `${formatInteger(result.total)} matching series.`
+        : `${formatInteger(result.total)} series in the migrated collection.`
+    }
   />
 
   <SeriesFilters {...filters} />
@@ -34,15 +41,37 @@ const filtered = Boolean(
   {result.items.length ? (
     <>
       <SeriesList items={result.items} />
-      <nav aria-label="Collection pagination" class="mt-5 flex items-center justify-between text-sm">
-        <span class="text-zinc-500">Page {currentPage} of {pages}</span>
+      <nav
+        aria-label="Collection pagination"
+        class="mt-5 flex items-center justify-between text-sm"
+      >
+        <span class="text-zinc-500">
+          Page {currentPage} of {pages}
+        </span>
         <div class="flex gap-2">
-          {page > 1 && <a href={collectionUrl(filters, page - 1)} class="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900">Previous</a>}
-          {page < pages && <a href={collectionUrl(filters, page + 1)} class="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900">Next</a>}
+          {page > 1 && (
+            <a
+              href={collectionUrl(filters, page - 1)}
+              class="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900"
+            >
+              Previous
+            </a>
+          )}
+          {page < pages && (
+            <a
+              href={collectionUrl(filters, page + 1)}
+              class="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900"
+            >
+              Next
+            </a>
+          )}
         </div>
       </nav>
     </>
   ) : (
-    <EmptyState title="No matching series" description="Try a broader title, publisher or creator search, or reset the filters." />
+    <EmptyState
+      title="No matching series"
+      description="Try a broader title, publisher or creator search, or reset the filters."
+    />
   )}
 </AppLayout>
