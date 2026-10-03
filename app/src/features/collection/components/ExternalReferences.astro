@@ -1,0 +1,21 @@
+---
+import type { ExternalReference } from '@/features/collection/types';
+
+interface Props {
+  references: ExternalReference[];
+}
+
+const { references } = Astro.props;
+---
+
+<div class="rounded-xl border border-zinc-800 p-5">
+  <h2 class="font-semibold text-white">External references</h2>
+  <div class="mt-4 space-y-2">
+    {references.length ? references.map((reference) => (
+      <div class="flex items-center justify-between gap-4 text-sm">
+        <span class="capitalize text-zinc-500">{reference.provider.replaceAll('_', ' ')}</span>
+        <code class="text-xs text-zinc-300">{reference.externalId}</code>
+      </div>
+    )) : <p class="text-sm text-zinc-500">No external provider references stored.</p>}
+  </div>
+</div>

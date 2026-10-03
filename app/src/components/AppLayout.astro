@@ -1,0 +1,66 @@
+---
+import '@/styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Personal comics collection' } = Astro.props;
+const pathname = Astro.url.pathname;
+
+const navigation = [
+  { href: '/', label: 'Dashboard' },
+  { href: '/collection', label: 'Collection' },
+  { href: '/boxes', label: 'Boxes' },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <title>{title} · Comics</title>
+  </head>
+  <body>
+    <div class="min-h-screen lg:grid lg:grid-cols-[15rem_1fr]">
+      <aside class="border-b border-zinc-800 bg-zinc-950 lg:min-h-screen lg:border-r lg:border-b-0">
+        <div class="sticky top-0 flex items-center justify-between px-5 py-4 lg:block lg:px-6 lg:py-7">
+          <a href="/" class="text-xl font-black tracking-tight text-white">Comics</a>
+          <nav class="flex gap-1 lg:mt-8 lg:block lg:space-y-1">
+            {
+              navigation.map((item) => {
+                const active =
+                  item.href === '/'
+                    ? pathname === '/'
+                    : pathname.startsWith(item.href);
+
+                return (
+                  <a
+                    href={item.href}
+                    class:list={[
+                      'rounded-lg px-3 py-2 text-sm font-medium lg:block',
+                      active
+                        ? 'bg-zinc-800 text-white'
+                        : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100',
+                    ]}
+                  >
+                    {item.label}
+                  </a>
+                );
+              })
+            }
+          </nav>
+        </div>
+      </aside>
+
+      <main class="min-w-0">
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-9">
+          <slot />
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

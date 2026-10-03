@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    background: #09090b;
+    color-scheme: dark;
+  }
+
+  body {
+    @apply min-h-screen bg-zinc-950 text-zinc-100 antialiased;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+}

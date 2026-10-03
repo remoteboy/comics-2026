@@ -1,0 +1,25 @@
+---
+import type { PriceSnapshot } from '@/features/valuation/types';
+import { formatGrade, formatLegacyDateTime, formatMoney } from '@/lib/format';
+
+interface Props {
+  history: PriceSnapshot[];
+}
+
+const { history } = Astro.props;
+---
+
+<div class="rounded-xl border border-zinc-800 p-5">
+  <h2 class="font-semibold text-white">Price history</h2>
+  <div class="mt-4 space-y-2">
+    {history.length ? history.map((snapshot) => (
+      <div class="flex items-center justify-between gap-4 border-b border-zinc-900 py-2 text-sm last:border-0">
+        <div>
+          <p class="text-zinc-300">{formatLegacyDateTime(snapshot.observedAt)}</p>
+          <p class="text-xs text-zinc-600">{snapshot.provider} · grade {formatGrade(snapshot.gradeTenths)}</p>
+        </div>
+        <span class="font-medium text-zinc-200">{formatMoney(snapshot.priceCents)}</span>
+      </div>
+    )) : <p class="text-sm text-zinc-500">No historical snapshots for this holding.</p>}
+  </div>
+</div>

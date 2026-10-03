@@ -1,0 +1,37 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import CoverImage from '@/components/CoverImage.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import StatCard from '@/components/StatCard.astro';
+import { getBox } from '@/features/boxes/repository';
+import { formatGrade, formatMoney } from '@/lib/format';
+
+const id = Number(Astro.params.id);
+const box = await getBox(id);
+if (!box) return Astro.redirect('/boxes');
+---
+
+<AppLayout title={`Box ${box.id}`}>
+  <PageHeader title={`Box ${box.id}`} eyebrow={box.type} />
+
+  <section class="mb-8 grid gap-3 sm:grid-cols-3">
+    <StatCard label="Value" value={formatMoney(box.valueCents)} />
+    <StatCard label="Physical copies" value={String(box.copyCount)} />
+    <StatCard label="Holdings" value={String(box.holdingCount)} />
+  </section>
+
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+    {box.holdings.map((holding) => (
+      <a href={`/comics/${holding.variantId}`} class="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50">
+        <CoverImage imageKey={holding.imageKey} alt={`${holding.seriesName} #${holding.issueNumber}`} class="w-full" />
+        <div class="p-3">
+          <p class="truncate text-sm font-medium text-zinc-100">{holding.seriesName}</p>
+          <div class="mt-1 flex justify-between gap-2 text-xs text-zinc-500">
+            <span>#{holding.issueNumber} · {formatGrade(holding.gradeTenths)}</span>
+            <span>{formatMoney(holding.valueCents)}</span>
+          </div>
+        </div>
+      </a>
+    ))}
+  </div>
+</AppLayout>

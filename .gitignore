@@ -1,0 +1,36 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node / Astro
+node_modules/
+.astro/
+dist/
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+.pnp.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated migration output
+/output/
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

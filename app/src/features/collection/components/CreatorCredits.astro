@@ -1,0 +1,21 @@
+---
+import type { VariantCredit } from '@/features/collection/types';
+
+interface Props {
+  credits: VariantCredit[];
+}
+
+const { credits } = Astro.props;
+---
+
+<div class="rounded-xl border border-zinc-800 p-5">
+  <h2 class="font-semibold text-white">Creators</h2>
+  <div class="mt-4 space-y-2">
+    {credits.length ? credits.map((credit) => (
+      <div class="flex justify-between gap-4 text-sm">
+        <span class="text-zinc-300">{credit.name}</span>
+        <span class="text-zinc-600">{credit.role?.replaceAll('_', ' ') ?? 'credit'}</span>
+      </div>
+    )) : <p class="text-sm text-zinc-500">No creator credits stored.</p>}
+  </div>
+</div>

@@ -1,0 +1,33 @@
+{
+  "name": "comics-collection",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.18.1",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "smoke:data": "node scripts/smoke-data.mjs",
+    "smoke:covers": "node --env-file=.env scripts/smoke-covers.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "11.1.6",
+    "@tailwindcss/vite": "4.3.3",
+    "astro": "7.3.5",
+    "tailwindcss": "4.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "prettier": "3.9.9",
+    "prettier-plugin-astro": "1.1.0",
+    "typescript": "7.0.2",
+    "vite": "8.0.13"
+  }
+}

@@ -1,0 +1,20 @@
+---
+import type { VariantDetail } from '@/features/collection/types';
+import { formatMoney } from '@/lib/format';
+
+interface Props {
+  variant: VariantDetail;
+}
+
+const { variant } = Astro.props;
+---
+
+<div class="rounded-xl border border-zinc-800 p-5">
+  <h2 class="font-semibold text-white">Details</h2>
+  <dl class="mt-4 grid grid-cols-[8rem_1fr] gap-x-4 gap-y-3 text-sm">
+    <dt class="text-zinc-500">Publisher</dt><dd class="text-zinc-300">{variant.publisherName ?? '—'}</dd>
+    <dt class="text-zinc-500">Cover price</dt><dd class="text-zinc-300">{formatMoney(variant.coverPriceCents)}</dd>
+    <dt class="text-zinc-500">Story title</dt><dd class="text-zinc-300">{variant.storyTitle ?? '—'}</dd>
+    <dt class="text-zinc-500">Significance</dt><dd class="text-zinc-300">{variant.firstAppearanceOf || '—'}</dd>
+  </dl>
+</div>

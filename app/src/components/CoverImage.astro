@@ -1,0 +1,17 @@
+---
+interface Props {
+  imageKey: string | null;
+  alt: string;
+  class?: string;
+}
+
+const { imageKey, alt, class: className = '' } = Astro.props;
+const src = imageKey ? `/covers/${encodeURIComponent(imageKey)}` : '/covers/missing.jpg';
+---
+
+<img
+  src={src}
+  alt={alt}
+  loading="lazy"
+  class:list={['aspect-[2/3] bg-zinc-900 object-cover', className]}
+/>

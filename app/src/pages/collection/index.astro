@@ -1,0 +1,70 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { listSeries } from '@/features/collection/series.repository';
+import { formatInteger, formatMoney } from '@/lib/format';
+import { positiveInt } from '@/lib/pagination';
+
+const query = Astro.url.searchParams.get('q')?.trim() ?? '';
+const page = positiveInt(Astro.url.searchParams.get('page'));
+const perPage = 50;
+const result = await listSeries(query, page, perPage);
+const pages = Math.max(1, Math.ceil(result.total / perPage));
+
+function pageUrl(nextPage: number): string {
+  const params = new URLSearchParams();
+  if (query) params.set('q', query);
+  if (nextPage > 1) params.set('page', String(nextPage));
+  const suffix = params.toString();
+  return `/collection${suffix ? `?${suffix}` : ''}`;
+}
+---
+
+<AppLayout title="Collection">
+  <PageHeader title="Collection" description={`${formatInteger(result.total)} series in the migrated catalogue.`} />
+
+  <form method="get" class="mb-6 flex max-w-2xl gap-2">
+    <input
+      type="search"
+      name="q"
+      value={query}
+      placeholder="Search titles…"
+      class="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+    />
+    <button class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white">Search</button>
+  </form>
+
+  {
+    result.items.length ? (
+      <>
+        <div class="overflow-hidden rounded-xl border border-zinc-800">
+          <div class="hidden grid-cols-[1fr_7rem_7rem_8rem] gap-4 border-b border-zinc-800 bg-zinc-900 px-4 py-2 text-xs font-semibold tracking-wide text-zinc-500 uppercase sm:grid">
+            <span>Series</span><span>Issues</span><span>Copies</span><span class="text-right">Value</span>
+          </div>
+          {result.items.map((series) => (
+            <a href={`/collection/${series.id}`} class="grid grid-cols-[1fr_auto] gap-3 border-b border-zinc-800 bg-zinc-950 px-4 py-3.5 last:border-0 hover:bg-zinc-900/70 sm:grid-cols-[1fr_7rem_7rem_8rem] sm:items-center">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-zinc-100">{series.name}</p>
+                <p class="mt-0.5 text-xs text-zinc-600 sm:hidden">{series.variantCount} variants · {series.copyCount} copies</p>
+              </div>
+              <span class="hidden text-sm text-zinc-400 sm:block">{series.variantCount}</span>
+              <span class="hidden text-sm text-zinc-400 sm:block">{series.copyCount}</span>
+              <span class="text-right text-sm font-medium text-zinc-200">{formatMoney(series.valueCents)}</span>
+            </a>
+          ))}
+        </div>
+
+        <nav class="mt-5 flex items-center justify-between text-sm">
+          <span class="text-zinc-500">Page {Math.min(page, pages)} of {pages}</span>
+          <div class="flex gap-2">
+            {page > 1 && <a href={pageUrl(page - 1)} class="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900">Previous</a>}
+            {page < pages && <a href={pageUrl(page + 1)} class="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-900">Next</a>}
+          </div>
+        </nav>
+      </>
+    ) : (
+      <EmptyState title="No matching titles" description="Try a broader title search." />
+    )
+  }
+</AppLayout>
