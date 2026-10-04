@@ -1,0 +1,130 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import { getZapConfigurationStatus } from '@/features/providers/zap-status';
+import { probeZapLive, zapLiveConfig } from '@/providers/zap/live';
+
+const configuration = getZapConfigurationStatus();
+const shouldProbe = Astro.url.searchParams.get('probe') === 'zap';
+const probe = shouldProbe
+  ? await probeZapLive({ config: zapLiveConfig() })
+  : null;
+
+const statusClasses = {
+  passed: 'border-emerald-900/60 bg-emerald-950/40 text-emerald-200',
+  failed: 'border-red-900/60 bg-red-950/40 text-red-200',
+  skipped: 'border-zinc-800 bg-zinc-900 text-zinc-400',
+};
+---
+
+<AppLayout title="Providers">
+  <PageHeader
+    title="Providers"
+    eyebrow="External data"
+    description="Provider health and live-integration status. Credentials remain server-side and are never rendered here."
+  />
+
+  <section class="grid gap-5 xl:grid-cols-2">
+    <article class="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+      <SectionHeader
+        title="Recorded ZapKapow"
+        description="Fixture-backed normalization retained for migration regression coverage."
+      />
+      <div class="mt-4 rounded-lg border border-emerald-900/60 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
+        Ready · recorded issue, variant, valuation and update payloads remain
+        covered by tests.
+      </div>
+    </article>
+
+    <article class="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+      <SectionHeader
+        title="Current ZapKapow"
+        description="Supabase/PostgREST profile captured from the authenticated Club application on 4 October 2026."
+      />
+
+      <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt class="text-zinc-600">Configuration</dt>
+          <dd class="mt-1 font-medium text-zinc-200">
+            {configuration.configured
+              ? 'Credentials configured'
+              : 'Not configured'}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-zinc-600">Endpoint profile</dt>
+          <dd class="mt-1 font-medium text-zinc-200">Current Supabase</dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-zinc-600">API origin</dt>
+          <dd class="mt-1 break-all font-mono text-xs text-zinc-300">
+            {configuration.apiBaseUrl}
+          </dd>
+        </div>
+      </dl>
+
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        {configuration.configured ? (
+          <a
+            href="/providers?probe=zap"
+            class="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
+          >
+            Probe current API
+          </a>
+        ) : (
+          <span class="rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-500">
+            Add the publishable key and access token to app/.env to enable
+            probing
+          </span>
+        )}
+      </div>
+    </article>
+  </section>
+
+  {probe && (
+    <section class="mt-8">
+      <SectionHeader
+        title="Live probe"
+        description={
+          probe.target
+            ? `Using preserved Zap IDs from ${probe.target.seriesName} #${probe.target.issueNumber}.`
+            : 'No suitable preserved Zap target was available.'
+        }
+      />
+
+      <div class="mt-4 space-y-2">
+        {probe.checks.map((check) => (
+          <div
+            class:list={[
+              'flex flex-col gap-1 rounded-lg border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between',
+              statusClasses[check.status],
+            ]}
+          >
+            <div>
+              <span class="font-semibold capitalize">
+                {check.operation.replaceAll('_', ' ')}
+              </span>
+              <span class="ml-2">{check.detail}</span>
+            </div>
+            {check.latencyMs !== undefined && (
+              <span class="shrink-0 text-xs opacity-60">
+                {check.latencyMs} ms
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <section class="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+    <h2 class="font-semibold text-zinc-200">Confirmed current surface</h2>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+      Current Zap traffic exposes title search, issue and variant listing, exact
+      issue detail, raw NM history, graded pricing and a database-wide recent
+      price-change feed. Live calls remain opt-in and are not used by normal
+      collection browsing.
+    </p>
+  </section>
+</AppLayout>

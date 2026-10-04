@@ -1,0 +1,7 @@
+[
+  { "grade": "9.0", "price": 285, "source": "ebay_api" },
+  { "grade": "9.2", "price": 300, "source": "ebay_api" },
+  { "grade": "9.4", "price": 350, "source": "ebay_api" },
+  { "grade": "9.6", "price": 421, "source": "ebay_api" },
+  { "grade": "9.8", "price": 737, "source": "ebay_api" }
+]

@@ -1,0 +1,51 @@
+{
+  "issues": [
+    {
+      "id": 196361,
+      "number": "4",
+      "variant": "",
+      "key_issue": "0",
+      "first_appearance_of": null,
+      "cover_url": null,
+      "cover_date": "December 2014",
+      "title_id": 7889,
+      "issue_type_id": 1,
+      "story_title": null,
+      "publisher": "Marvel",
+      "cover_price": 3.99,
+      "writer": "Clay Chapman",
+      "penciller": "Elia Bonnetti",
+      "cover_artist": "Garry Brown",
+      "inker": null,
+      "details": null,
+      "nm_price": 4,
+      "total_issue_count": 3,
+      "title_slug_out": "edge-of-spider-verse-2014",
+      "issue_slug_out": "4-196361"
+    },
+    {
+      "id": 196362,
+      "number": "4",
+      "variant": "Variant Cover",
+      "key_issue": "0",
+      "first_appearance_of": null,
+      "cover_url": null,
+      "cover_date": "December 2014",
+      "title_id": 7889,
+      "issue_type_id": 1,
+      "story_title": null,
+      "publisher": "Marvel",
+      "cover_price": 3.99,
+      "writer": "Clay Chapman",
+      "penciller": "Elia Bonnetti",
+      "cover_artist": "Greg Land",
+      "inker": null,
+      "details": null,
+      "nm_price": 10,
+      "total_issue_count": 3,
+      "title_slug_out": "edge-of-spider-verse-2014",
+      "issue_slug_out": "4-variant-cover-196362"
+    }
+  ],
+  "total_count": 2
+}

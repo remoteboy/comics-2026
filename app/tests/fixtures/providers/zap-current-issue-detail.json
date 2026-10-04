@@ -1,0 +1,46 @@
+{
+  "id": 196357,
+  "number": "2",
+  "variant": "",
+  "key_issue": "1",
+  "first_appearance_of": "Spider-Gwen",
+  "cover_url": null,
+  "cover_date": "November 2014",
+  "title_id": 7889,
+  "issue_type_id": 1,
+  "issue_type_name": "Issue",
+  "story_title": "",
+  "publisher": "Marvel",
+  "cover_price": 3.99,
+  "writer": "Jason Latour",
+  "penciller": "Robbi Rodriguez",
+  "cover_artist": "Robbi Rodriguez",
+  "inker": "",
+  "details": "First appearance: Spider-Gwen",
+  "title_name": "Edge Of Spider-Verse (2014)",
+  "current_nm_price": 300,
+  "previous_nm_price": 805,
+  "current_price_effective_date": "2026-09-30T21:18:05.686+00:00",
+  "historical_prices": [
+    {
+      "price": "805",
+      "source": "ebay_api",
+      "created_at": "2026-08-11T04:35:59.926+00:00",
+      "price_guides": {
+        "id": 259,
+        "effective_date": "2026-08-05 00:00:00+00"
+      }
+    },
+    {
+      "price": "300",
+      "source": "ebay_api",
+      "created_at": "2026-09-30T21:18:05.686+00:00",
+      "price_guides": {
+        "id": 266,
+        "effective_date": "2026-09-25 00:00:00+00"
+      }
+    }
+  ],
+  "title_slug_out": "edge-of-spider-verse-2014",
+  "issue_slug_out": "2-196357"
+}

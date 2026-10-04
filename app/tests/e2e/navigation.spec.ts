@@ -31,3 +31,17 @@ test('box navigation crosses gaps in legacy box IDs', async ({ page }) => {
   await page.getByRole('link', { name: 'Next box, 3' }).click();
   await expect(page.getByRole('heading', { name: 'Long C' })).toBeVisible();
 });
+
+test('provider status page exposes recorded and current Zap profiles', async ({
+  page,
+}) => {
+  await page.goto('/providers');
+
+  await expect(page.getByRole('heading', { name: 'Providers' })).toBeVisible();
+  await expect(
+    page.getByText('Recorded ZapKapow', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Current ZapKapow', { exact: true }),
+  ).toBeVisible();
+});

@@ -32,3 +32,7 @@ Cover images are served from the existing legacy image directory configured thro
 - `tests/e2e/` — Playwright route and browser smoke tests.
 
 See `../docs/testing.md` for the full test workflow and the repository-level `docs/roadmap.md` for project status.
+
+## Live Zap probe
+
+The `/providers` route keeps the recorded provider adapter visible alongside an opt-in probe of the current Zap Supabase API. Configure `ZAP_SUPABASE_PUBLISHABLE_KEY` and a current `ZAP_ACCESS_TOKEN` in `.env`; neither value is rendered in the page or used by normal collection browsing.

@@ -144,18 +144,20 @@
 
 ## Phase 6 — Live ZapKapow integration
 
-- [ ] Obtain fresh ZapKapow session
-- [ ] Inspect current application/network requests
-- [ ] Determine whether legacy endpoints still exist
-- [ ] Confirm title search
-- [ ] Confirm issue lookup
-- [ ] Confirm variant / cover lookup
-- [ ] Confirm grade-based pricing
-- [ ] Confirm price-update feed
-- [ ] Store credentials only as runtime secrets
-- [ ] Add provider-health/status reporting
-- [ ] Gracefully handle expired sessions
-- [ ] Ensure collection remains usable with Zap offline
+- [x] Obtain fresh ZapKapow session
+- [x] Inspect current application/network requests
+- [x] Determine current API transport and retire the legacy-endpoint assumption
+- [x] Confirm title search
+- [x] Confirm issue lookup
+- [x] Confirm variant / cover lookup
+- [x] Confirm grade-based pricing
+- [x] Confirm price-update feed
+- [x] Store credentials only as runtime secrets
+- [x] Add provider-health/status reporting
+- [x] Gracefully handle invalid / expired live credentials
+- [x] Ensure collection remains usable with Zap offline
+- [x] Verify live integration against preserved Zap title and variant IDs
+- [x] Advance application version to `0.5.0`
 
 ## Phase 7 — Valuation engine
 
@@ -259,8 +261,8 @@
 
 ## Current position
 
-**Completed: Phase 5 — Provider architecture (`v0.4.0`)**
+**Completed: Phase 6 — Live ZapKapow integration (`v0.5.0`)**
 
-**Next: Phase 6 — Live ZapKapow integration**
+**Next: Phase 7 — Valuation engine**
 
-The shared provider boundary and recorded-response ZapKapow/Comic Vine adapters are now covered by fixtures from the legacy archive. Phase 6 can investigate the current Zap service without coupling live HTTP/session behavior to normalization or collection domain models.
+The current Zap service is now integrated through its observed Supabase/PostgREST API. Live probes confirm preserved title and variant IDs, issue detail, raw NM valuation, graded-price access and the database-wide price-change feed while keeping live-provider failures isolated from collection browsing. Phase 7 can build current snapshots and movement tracking on top of those verified valuation sources.

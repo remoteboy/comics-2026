@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The project follows Semantic Versioning while the replacement application is developed.
 
+## [0.5.0] - 2026-10-04
+
+### Added
+
+- Current ZapKapow live adapter using the observed Supabase/PostgREST API rather than the legacy AJAX transport.
+- Live title search, issue/variant discovery, exact issue detail, raw NM valuation, graded-price lookup and database-wide price-change normalization.
+- Provider status page and live probe that verify preserved Zap title/variant IDs against the current service.
+- Current-API fixtures plus unit, integration and browser coverage for the live provider boundary.
+
+### Changed
+
+- ZapKapow credentials are supplied only through runtime environment variables and are kept out of rendered output and logs.
+- Live provider failures are isolated from normal collection browsing, so the migrated collection remains usable when Zap is unavailable.
+- Supabase authentication errors now surface sanitized API error details instead of collapsing all failures into a bearer-token error.
+- Application version advanced to `0.5.0`.
+
 ## [0.4.0] - 2026-10-03
 
 ### Added
