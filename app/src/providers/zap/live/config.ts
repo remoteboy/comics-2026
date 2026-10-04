@@ -8,5 +8,7 @@ export function zapLiveConfig(): ZapLiveConfig {
     apiBaseUrl: import.meta.env.ZAP_SUPABASE_URL ?? CURRENT_ZAP_SUPABASE_URL,
     publishableKey: import.meta.env.ZAP_SUPABASE_PUBLISHABLE_KEY || undefined,
     accessToken: import.meta.env.ZAP_ACCESS_TOKEN || undefined,
+    refreshToken: import.meta.env.ZAP_REFRESH_TOKEN || undefined,
+    sessionPath: import.meta.env.ZAP_SESSION_PATH || undefined,
   };
 }

@@ -35,4 +35,6 @@ See `../docs/testing.md` for the full test workflow and the repository-level `do
 
 ## Live Zap probe
 
-The `/providers` route keeps the recorded provider adapter visible alongside an opt-in probe of the current Zap Supabase API. Configure `ZAP_SUPABASE_PUBLISHABLE_KEY` and a current `ZAP_ACCESS_TOKEN` in `.env`; neither value is rendered in the page or used by normal collection browsing.
+The `/providers` route keeps the recorded provider adapter visible alongside an opt-in probe of the current Zap Supabase API. Configure `ZAP_SUPABASE_PUBLISHABLE_KEY`, `ZAP_ACCESS_TOKEN` and `ZAP_REFRESH_TOKEN` in `.env`; none of these values is rendered in the page or used by normal collection browsing. Seed these values from a dedicated Zap login session rather than the browser session you normally use, so the app exclusively owns that refresh-token rotation chain.
+
+When a refresh token is configured, the server refreshes the Supabase session shortly before JWT expiry and retries one unauthorized request after rotating the session. Rotated access/refresh tokens are persisted outside the repository at `~/.config/comics-collection/zap-session.json` with owner-only permissions. Set `ZAP_SESSION_PATH` to override that location. Delete the session file if you intentionally replace the Zap browser session and want the values in `.env` to seed a new local session.

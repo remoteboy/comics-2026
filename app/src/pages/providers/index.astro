@@ -3,13 +3,38 @@ import AppLayout from '@/components/AppLayout.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import { getZapConfigurationStatus } from '@/features/providers/zap-status';
-import { probeZapLive, zapLiveConfig } from '@/providers/zap/live';
+import {
+  createZapSupabaseClient,
+  probeZapLive,
+  zapLiveConfig,
+} from '@/providers/zap/live';
 
+const config = zapLiveConfig();
 const configuration = getZapConfigurationStatus();
 const shouldProbe = Astro.url.searchParams.get('probe') === 'zap';
-const probe = shouldProbe
-  ? await probeZapLive({ config: zapLiveConfig() })
-  : null;
+const shouldRefresh = Astro.url.searchParams.get('refresh') === 'zap';
+
+let refreshResult: { status: 'passed' | 'failed'; detail: string } | null =
+  null;
+
+if (shouldRefresh) {
+  try {
+    await createZapSupabaseClient(config).refreshSession();
+    refreshResult = {
+      status: 'passed',
+      detail:
+        'Zap session refreshed and the rotated token pair was persisted locally.',
+    };
+  } catch (error) {
+    refreshResult = {
+      status: 'failed',
+      detail:
+        error instanceof Error ? error.message : 'Zap session refresh failed.',
+    };
+  }
+}
+
+const probe = shouldProbe ? await probeZapLive({ config }) : null;
 
 const statusClasses = {
   passed: 'border-emerald-900/60 bg-emerald-950/40 text-emerald-200',
@@ -53,6 +78,14 @@ const statusClasses = {
           </dd>
         </div>
         <div>
+          <dt class="text-zinc-600">Session refresh</dt>
+          <dd class="mt-1 font-medium text-zinc-200">
+            {configuration.refreshConfigured
+              ? 'Automatic'
+              : 'Manual token replacement'}
+          </dd>
+        </div>
+        <div>
           <dt class="text-zinc-600">Endpoint profile</dt>
           <dd class="mt-1 font-medium text-zinc-200">Current Supabase</dd>
         </div>
@@ -74,13 +107,39 @@ const statusClasses = {
           </a>
         ) : (
           <span class="rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-500">
-            Add the publishable key and access token to app/.env to enable
-            probing
+            Add the publishable key plus an access or refresh token to app/.env
+            to enable probing
           </span>
+        )}
+
+        {configuration.refreshConfigured && (
+          <a
+            href="/providers?refresh=zap"
+            class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
+          >
+            Refresh session now
+          </a>
         )}
       </div>
     </article>
   </section>
+
+  {refreshResult && (
+    <section class="mt-8">
+      <SectionHeader
+        title="Session refresh"
+        description="Manual verification of the automatic Supabase refresh path."
+      />
+      <div
+        class:list={[
+          'mt-4 rounded-lg border px-4 py-3 text-sm',
+          statusClasses[refreshResult.status],
+        ]}
+      >
+        {refreshResult.detail}
+      </div>
+    </section>
+  )}
 
   {probe && (
     <section class="mt-8">

@@ -8,6 +8,8 @@ export type ZapLiveOperation =
 
 export type ZapLiveErrorCode =
   | 'not_configured'
+  | 'session_expired'
+  | 'refresh_failed'
   | 'unauthorized'
   | 'endpoint_unavailable'
   | 'invalid_response'
@@ -17,6 +19,19 @@ export interface ZapLiveConfig {
   apiBaseUrl: string;
   publishableKey?: string;
   accessToken?: string;
+  refreshToken?: string;
+  sessionPath?: string;
+}
+
+export interface ZapSession {
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+export interface ZapSessionStore {
+  load(): Promise<ZapSession | null>;
+  save(session: ZapSession): Promise<void>;
 }
 
 export interface ZapProbeTarget {

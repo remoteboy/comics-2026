@@ -6,7 +6,13 @@ import type {
   ZapTitleSearchRow,
 } from './api-types';
 import { ZapLiveError, zapLiveHttpError } from './error';
-import type { ZapLiveConfig } from './types';
+import { MemoryZapSessionStore } from './session-store';
+import {
+  accessTokenExpiresAt,
+  sessionFromConfig,
+  sessionNeedsRefresh,
+} from './session';
+import type { ZapLiveConfig, ZapSession, ZapSessionStore } from './types';
 
 interface IssuesForTitleOptions {
   titleSlug: string;
@@ -15,14 +21,28 @@ interface IssuesForTitleOptions {
   pageSize?: number;
 }
 
+interface RefreshResponse {
+  access_token?: unknown;
+  refresh_token?: unknown;
+  expires_in?: unknown;
+}
+
 export class ZapSupabaseClient {
+  private refreshPromise: Promise<ZapSession> | null = null;
+
   constructor(
     private readonly config: ZapLiveConfig,
     private readonly fetchImpl: typeof fetch = fetch,
+    private readonly sessionStore: ZapSessionStore = new MemoryZapSessionStore(
+      sessionFromConfig(config),
+    ),
   ) {}
 
   get configured(): boolean {
-    return Boolean(this.config.publishableKey && this.config.accessToken);
+    return Boolean(
+      this.config.publishableKey &&
+      (this.config.accessToken || this.config.refreshToken),
+    );
   }
 
   searchTitles(
@@ -83,6 +103,10 @@ export class ZapSupabaseClient {
     });
   }
 
+  refreshSession(): Promise<ZapSession> {
+    return this.getSession(true);
+  }
+
   private rpc<T>(
     name: string,
     payload: Record<string, unknown>,
@@ -95,11 +119,150 @@ export class ZapSupabaseClient {
     });
   }
 
-  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    if (!this.config.publishableKey || !this.config.accessToken) {
+  private async getSession(forceRefresh = false): Promise<ZapSession> {
+    const session = await this.sessionStore.load();
+
+    if (!session) {
       throw new ZapLiveError(
         'not_configured',
-        'Zap live access requires a publishable key and access token.',
+        'Zap live access requires an access token or refresh token.',
+      );
+    }
+
+    if (!forceRefresh && !sessionNeedsRefresh(session)) return session;
+
+    if (!session.refreshToken) {
+      if (session.accessToken && !forceRefresh) {
+        throw new ZapLiveError(
+          'session_expired',
+          'Zap access token expired and no refresh token is configured.',
+        );
+      }
+
+      throw new ZapLiveError(
+        'refresh_failed',
+        'Zap session refresh requires a refresh token.',
+      );
+    }
+
+    return this.refresh(session.refreshToken);
+  }
+
+  private refresh(refreshToken: string): Promise<ZapSession> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.performRefresh(refreshToken).finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+
+    return this.refreshPromise;
+  }
+
+  private async performRefresh(refreshToken: string): Promise<ZapSession> {
+    if (!this.config.publishableKey) {
+      throw new ZapLiveError(
+        'not_configured',
+        'Zap session refresh requires the Supabase publishable key.',
+      );
+    }
+
+    const url = new URL(
+      '/auth/v1/token?grant_type=refresh_token',
+      `${this.config.apiBaseUrl.replace(/\/$/, '')}/`,
+    );
+    const headers = new Headers({
+      accept: 'application/json',
+      apikey: this.config.publishableKey,
+      authorization: `Bearer ${this.config.publishableKey}`,
+      'content-type': 'application/json',
+      'x-client-info': 'zapkapow-comics-web',
+    });
+
+    let response: Response;
+
+    try {
+      response = await this.fetchImpl(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    } catch (error) {
+      throw new ZapLiveError(
+        'network_error',
+        error instanceof Error ? error.message : 'Zap session refresh failed.',
+      );
+    }
+
+    const body = await response.text();
+
+    if (!response.ok) {
+      const error = zapLiveHttpError(response.status, body);
+      throw new ZapLiveError(
+        'refresh_failed',
+        `Zap session refresh failed: ${error.message}`,
+        response.status,
+      );
+    }
+
+    let payload: RefreshResponse;
+
+    try {
+      payload = JSON.parse(body) as RefreshResponse;
+    } catch {
+      throw new ZapLiveError(
+        'refresh_failed',
+        'Zap session refresh returned a non-JSON response.',
+        response.status,
+      );
+    }
+
+    if (
+      typeof payload.access_token !== 'string' ||
+      typeof payload.refresh_token !== 'string'
+    ) {
+      throw new ZapLiveError(
+        'refresh_failed',
+        'Zap session refresh returned no usable access/refresh token pair.',
+        response.status,
+      );
+    }
+
+    const jwtExpiry = accessTokenExpiresAt(payload.access_token);
+    const expiresIn =
+      typeof payload.expires_in === 'number' &&
+      Number.isFinite(payload.expires_in)
+        ? payload.expires_in
+        : undefined;
+    const session: ZapSession = {
+      accessToken: payload.access_token,
+      refreshToken: payload.refresh_token,
+      expiresAt:
+        jwtExpiry ??
+        (expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : undefined),
+    };
+
+    await this.sessionStore.save(session);
+    return session;
+  }
+
+  private async request<T>(
+    path: string,
+    init: RequestInit = {},
+    retried = false,
+  ): Promise<T> {
+    if (!this.config.publishableKey) {
+      throw new ZapLiveError(
+        'not_configured',
+        'Zap live access requires the Supabase publishable key.',
+      );
+    }
+
+    const session = await this.getSession();
+
+    if (!session.accessToken) {
+      throw new ZapLiveError(
+        'session_expired',
+        'Zap session did not provide an access token.',
       );
     }
 
@@ -108,7 +271,7 @@ export class ZapSupabaseClient {
 
     if (!headers.has('accept')) headers.set('accept', 'application/json');
     headers.set('apikey', this.config.publishableKey);
-    headers.set('authorization', `Bearer ${this.config.accessToken}`);
+    headers.set('authorization', `Bearer ${session.accessToken}`);
     headers.set('accept-profile', 'public');
     headers.set('x-client-info', 'zapkapow-comics-web');
 
@@ -129,6 +292,11 @@ export class ZapSupabaseClient {
     }
 
     const body = await response.text();
+
+    if (response.status === 401 && !retried && session.refreshToken) {
+      await this.getSession(true);
+      return this.request(path, init, true);
+    }
 
     if (!response.ok) throw zapLiveHttpError(response.status, body);
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ZapSupabaseClient } from '@/providers/zap/live/client';
 import { ZapLiveError } from '@/providers/zap/live/error';
+import { MemoryZapSessionStore } from '@/providers/zap/live/session-store';
 
 function jsonResponse(payload: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(payload), {
@@ -164,6 +165,127 @@ describe('ZapSupabaseClient', () => {
     await expect(client(fetchMock).searchTitles('test')).rejects.toMatchObject({
       code: 'endpoint_unavailable',
       status: 404,
+    });
+  });
+});
+
+function jwtWithExpiry(exp: number): string {
+  const encode = (value: object) =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+
+  return `${encode({ alg: 'none' })}.${encode({ exp })}.signature`;
+}
+
+describe('ZapSupabaseClient session refresh', () => {
+  it('refreshes an expired access token before the API request and persists rotation', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const expiredToken = jwtWithExpiry(now - 60);
+    const refreshedToken = jwtWithExpiry(now + 7200);
+    const store = new MemoryZapSessionStore({
+      accessToken: expiredToken,
+      refreshToken: 'refresh-one',
+      expiresAt: now - 60,
+    });
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+
+        if (url.includes('/auth/v1/token?grant_type=refresh_token')) {
+          const headers = new Headers(init?.headers);
+          expect(headers.get('apikey')).toBe('publishable-test-key');
+          expect(headers.get('authorization')).toBe(
+            'Bearer publishable-test-key',
+          );
+          expect(JSON.parse(String(init?.body))).toEqual({
+            refresh_token: 'refresh-one',
+          });
+          return jsonResponse({
+            access_token: refreshedToken,
+            refresh_token: 'refresh-two',
+            expires_in: 7200,
+            token_type: 'bearer',
+          });
+        }
+
+        expect(new Headers(init?.headers).get('authorization')).toBe(
+          `Bearer ${refreshedToken}`,
+        );
+        return jsonResponse([]);
+      },
+    ) as typeof fetch;
+    const zap = new ZapSupabaseClient(
+      {
+        apiBaseUrl: 'https://zap-project.example.test',
+        publishableKey: 'publishable-test-key',
+        accessToken: expiredToken,
+        refreshToken: 'refresh-one',
+      },
+      fetchMock,
+      store,
+    );
+
+    await zap.searchTitles('test');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await expect(store.load()).resolves.toMatchObject({
+      accessToken: refreshedToken,
+      refreshToken: 'refresh-two',
+    });
+  });
+
+  it('retries one unauthorized API call after rotating the session', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const accessToken = jwtWithExpiry(now + 7200);
+    const refreshedToken = jwtWithExpiry(now + 14_400);
+    let apiAttempts = 0;
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+
+        if (url.includes('/auth/v1/token?grant_type=refresh_token')) {
+          return jsonResponse({
+            access_token: refreshedToken,
+            refresh_token: 'refresh-two',
+            expires_in: 7200,
+          });
+        }
+
+        apiAttempts += 1;
+        const authorization = new Headers(init?.headers).get('authorization');
+
+        if (apiAttempts === 1) {
+          expect(authorization).toBe(`Bearer ${accessToken}`);
+          return jsonResponse({ message: 'JWT expired' }, { status: 401 });
+        }
+
+        expect(authorization).toBe(`Bearer ${refreshedToken}`);
+        return jsonResponse([]);
+      },
+    ) as typeof fetch;
+    const zap = new ZapSupabaseClient(
+      {
+        apiBaseUrl: 'https://zap-project.example.test',
+        publishableKey: 'publishable-test-key',
+        accessToken,
+        refreshToken: 'refresh-one',
+      },
+      fetchMock,
+    );
+
+    await expect(zap.searchTitles('test')).resolves.toEqual([]);
+    expect(apiAttempts).toBe(2);
+  });
+
+  it('reports an expired access token clearly when no refresh token exists', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const zap = new ZapSupabaseClient({
+      apiBaseUrl: 'https://zap-project.example.test',
+      publishableKey: 'publishable-test-key',
+      accessToken: jwtWithExpiry(now - 60),
+    });
+
+    await expect(zap.searchTitles('test')).rejects.toMatchObject({
+      code: 'session_expired',
     });
   });
 });

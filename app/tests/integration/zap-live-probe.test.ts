@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { probeZapLive } from '@/providers/zap/live/probe';
+import { MemoryZapSessionStore } from '@/providers/zap/live/session-store';
 
 import {
   createTestDatabase,
@@ -159,6 +160,9 @@ describe('probeZapLive', () => {
       },
       db,
       fetchImpl: fetchMock,
+      sessionStore: new MemoryZapSessionStore({
+        accessToken: 'access-test-token',
+      }),
     });
 
     expect(result.configured).toBe(true);

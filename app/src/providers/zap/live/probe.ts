@@ -4,10 +4,10 @@ import {
   normalizeCurrentZapIssue,
   normalizeCurrentZapVariants,
 } from './catalog';
-import { ZapSupabaseClient } from './client';
 import { timedProbeCheck } from './probe-check';
 import { getZapProbeTarget } from './probe-repository';
-import type { ZapLiveConfig, ZapProbeResult } from './types';
+import { createZapSupabaseClient } from './server-client';
+import type { ZapLiveConfig, ZapProbeResult, ZapSessionStore } from './types';
 import { normalizeCurrentZapUpdates } from './updates';
 import {
   normalizeCurrentZapGradedValuations,
@@ -18,16 +18,18 @@ interface ProbeOptions {
   config: ZapLiveConfig;
   db?: QueryDatabase;
   fetchImpl?: typeof fetch;
+  sessionStore?: ZapSessionStore;
 }
 
 export async function probeZapLive({
   config,
   db,
   fetchImpl,
+  sessionStore,
 }: ProbeOptions): Promise<ZapProbeResult> {
   const target = await getZapProbeTarget(db);
 
-  if (!config.publishableKey || !config.accessToken) {
+  if (!config.publishableKey || (!config.accessToken && !config.refreshToken)) {
     return {
       configured: false,
       apiBaseUrl: config.apiBaseUrl,
@@ -38,7 +40,7 @@ export async function probeZapLive({
           operation: 'search',
           status: 'skipped',
           detail:
-            'Set ZAP_SUPABASE_PUBLISHABLE_KEY and ZAP_ACCESS_TOKEN locally before probing live Zap.',
+            'Set ZAP_SUPABASE_PUBLISHABLE_KEY plus a Zap access or refresh token locally before probing live Zap.',
         },
       ],
     };
@@ -60,7 +62,7 @@ export async function probeZapLive({
     };
   }
 
-  const client = new ZapSupabaseClient(config, fetchImpl);
+  const client = createZapSupabaseClient(config, fetchImpl, sessionStore);
   let titleSlug: string | null = null;
   let issueSlug: string | null = null;
   let issuePayload: unknown;

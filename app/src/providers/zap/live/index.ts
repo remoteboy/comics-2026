@@ -13,12 +13,15 @@ export {
   normalizeCurrentZapVariants,
 } from './catalog';
 export { ZapSupabaseClient } from './client';
+export { createZapSupabaseClient } from './server-client';
 export { CURRENT_ZAP_SUPABASE_URL, zapLiveConfig } from './config';
 export { ZapLiveError } from './error';
 export { probeZapLive } from './probe';
 export { getZapProbeTarget } from './probe-repository';
 export type {
   ZapLiveConfig,
+  ZapSession,
+  ZapSessionStore,
   ZapLiveErrorCode,
   ZapLiveOperation,
   ZapProbeCheck,
