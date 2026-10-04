@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The project follows Semantic Versioning while the replacement application is developed.
 
+## [0.6.0] - 2026-10-04
+
+### Added
+
+- Explicit current-valuation records for every holding, seeded from the migrated legacy baseline.
+- Price snapshots and provider-sync history for live valuation refreshes.
+- ZapKapow recent-change sync plus bounded stale/legacy backfill using direct current-price requests.
+- Holding-grade valuation using ZapKapow condition multipliers rather than assuming every copy is NM / 9.4.
+- 30-day, 90-day and all-time movement calculations where historical snapshots permit.
+- Valuation freshness, stale/missing-price detection and a dedicated Valuations screen with sync history and movers.
+
+### Changed
+
+- Live Zap values and legacy fallback values are now distinguished in valuation and comic-detail UI.
+- Price snapshots are recorded only when the effective holding valuation changes.
+- Application version advanced to `0.6.0`.
+
+## [0.5.1] - 2026-10-04
+
+### Added
+
+- Automatic Supabase session refresh for the current ZapKapow integration.
+- Server-side persistence of rotated Zap access/refresh token pairs outside the repository.
+- Manual provider-page action for verifying the refresh path without exposing credentials.
+
+### Fixed
+
+- Live Zap integration no longer requires manual replacement of the short-lived access token during normal use.
+
 ## [0.5.0] - 2026-10-04
 
 ### Added

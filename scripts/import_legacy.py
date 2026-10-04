@@ -245,7 +245,13 @@ def archive_payloads(issues: Iterable[dict[str, Any]], archive_dir: Path) -> Cou
     return counts
 
 
-def import_data(data: dict[str, list[dict[str, Any]]], db_path: Path, schema_path: Path, archive_dir: Path) -> dict[str, Any]:
+def import_data(
+    data: dict[str, list[dict[str, Any]]],
+    db_path: Path,
+    schema_path: Path,
+    valuation_schema_path: Path,
+    archive_dir: Path,
+) -> dict[str, Any]:
     if db_path.exists():
         db_path.unlink()
     conn = sqlite3.connect(db_path)
@@ -402,6 +408,17 @@ def import_data(data: dict[str, list[dict[str, Any]]], db_path: Path, schema_pat
             )
             price_events_attached += 1
 
+        # Phase 7 adds the explicit current-valuation model after legacy holdings
+        # and recovered price snapshots exist, so the migration can seed them.
+        conn.executescript(valuation_schema_path.read_text(encoding="utf-8"))
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)"
+        )
+        conn.executemany(
+            "INSERT OR IGNORE INTO schema_migrations(name, applied_at) VALUES (?, datetime('now'))",
+            [(schema_path.name,), (valuation_schema_path.name,)],
+        )
+
         metadata = {
             "source_dump": str(sql_path_global.name),
             "migration_strategy": "legacy IDs retained for series/variants/holdings; logical issues grouped by series+number+type",
@@ -459,6 +476,7 @@ def reconcile(conn: sqlite3.Connection, data: dict[str, list[dict[str, Any]]]) -
         "missing_value_holdings": scalar("SELECT COUNT(*) FROM holdings WHERE current_value_cents IS NULL"),
         "zero_value_holdings": scalar("SELECT COUNT(*) FROM holdings WHERE current_value_cents = 0"),
         "price_snapshots_recovered": scalar("SELECT COUNT(*) FROM price_snapshots"),
+        "current_valuations_seeded": scalar("SELECT COUNT(*) FROM current_valuations"),
         "foreign_key_violations": len(conn.execute("PRAGMA foreign_key_check").fetchall()),
         "integrity_check": conn.execute("PRAGMA integrity_check").fetchone()[0],
         "collection_value": f"{legacy_value_cents / 100:.2f}",
@@ -470,6 +488,11 @@ def main() -> None:
     parser.add_argument("sql_dump", type=Path)
     parser.add_argument("--db", type=Path, default=Path("output/comics.d1.sqlite"))
     parser.add_argument("--schema", type=Path, default=Path("d1/migrations/0001_initial.sql"))
+    parser.add_argument(
+        "--valuation-schema",
+        type=Path,
+        default=Path("d1/migrations/0002_valuation_engine.sql"),
+    )
     parser.add_argument("--archive-dir", type=Path, default=Path("output/provider-payloads"))
     parser.add_argument("--report", type=Path, default=Path("output/reconciliation.json"))
     args = parser.parse_args()
@@ -479,7 +502,13 @@ def main() -> None:
 
     data = read_legacy(args.sql_dump)
     args.db.parent.mkdir(parents=True, exist_ok=True)
-    report = import_data(data, args.db, args.schema, args.archive_dir)
+    report = import_data(
+        data,
+        args.db,
+        args.schema,
+        args.valuation_schema,
+        args.archive_dir,
+    )
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2, ensure_ascii=False))

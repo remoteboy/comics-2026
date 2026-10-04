@@ -15,10 +15,10 @@ const { history } = Astro.props;
 ---
 
 <div class="rounded-xl border border-zinc-800 p-5">
-  <h2 class="font-semibold text-white">Recovered price history</h2>
+  <h2 class="font-semibold text-white">Price history</h2>
   <p class="mt-1 text-xs leading-5 text-zinc-600">
-    Only legacy price changes were recoverable; unchanged daily observations
-    were never stored.
+    Recovered legacy changes and live Zap changes. Unchanged provider
+    observations are intentionally not duplicated as snapshots.
   </p>
   <div class="mt-4 space-y-1">
     {history.length ? (
@@ -56,7 +56,7 @@ const { history } = Astro.props;
       })
     ) : (
       <p class="text-sm text-zinc-500">
-        No recovered historical changes for this holding.
+        No recorded price changes for this holding.
       </p>
     )}
   </div>

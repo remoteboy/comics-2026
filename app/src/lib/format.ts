@@ -37,8 +37,15 @@ const date = new Intl.DateTimeFormat('en-IE', {
   year: 'numeric',
 });
 
-export function formatLegacyDateTime(value: string | null | undefined): string {
+export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—';
-  const parsed = new Date(`${value.replace(' ', 'T')}Z`);
+  const normalized = value.includes('T')
+    ? value
+    : `${value.replace(' ', 'T')}Z`;
+  const parsed = new Date(normalized);
   return Number.isNaN(parsed.getTime()) ? value : date.format(parsed);
+}
+
+export function formatLegacyDateTime(value: string | null | undefined): string {
+  return formatDateTime(value);
 }

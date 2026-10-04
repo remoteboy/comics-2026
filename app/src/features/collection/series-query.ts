@@ -76,7 +76,7 @@ export function seriesWhere(options: SeriesListOptions): {
     'zero-value': 'h.current_value_cents = 0',
     unboxed: 'h.box_id IS NULL',
     'stale-value':
-      "h.current_value_cents IS NOT NULL AND COALESCE(h.updated_at, h.created_at) < datetime('now', '-365 days')",
+      "h.current_value_cents IS NOT NULL AND NOT EXISTS (SELECT 1 FROM current_valuations cv WHERE cv.holding_id = h.id AND cv.provider = 'zap' AND cv.refreshed_at >= datetime('now', '-7 days'))",
   };
 
   if (health !== 'all') {

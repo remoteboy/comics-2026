@@ -14,7 +14,10 @@ import {
   listVariantHoldings,
 } from '@/features/collection/variant.repository';
 import PriceHistory from '@/features/valuation/components/PriceHistory.astro';
-import { listPriceHistory } from '@/features/valuation/repository';
+import {
+  getCurrentValuation,
+  listPriceHistory,
+} from '@/features/valuation/repository';
 
 const id = Number(Astro.params.id);
 const variant = await getVariant(id);
@@ -25,9 +28,15 @@ const [holdings, credits, externalReferences] = await Promise.all([
   listVariantCredits(id),
   listVariantExternalReferences(id),
 ]);
-const history = holdings[0]
-  ? await listPriceHistory(holdings[0].holdingId)
-  : [];
+const [history, valuations] = await Promise.all([
+  holdings[0] ? listPriceHistory(holdings[0].holdingId) : Promise.resolve([]),
+  Promise.all(
+    holdings.map((holding) => getCurrentValuation(holding.holdingId)),
+  ),
+]);
+const currentValuations = valuations.filter(
+  (valuation) => valuation !== undefined,
+);
 const title = `${variant.seriesName} #${variant.issueNumber}`;
 ---
 
@@ -61,7 +70,7 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
     </div>
 
     <div class="min-w-0 space-y-8">
-      <HoldingStats holdings={holdings} />
+      <HoldingStats holdings={holdings} valuations={currentValuations} />
 
       <section class="grid gap-6 xl:grid-cols-2">
         <VariantDetails variant={variant} />

@@ -73,6 +73,26 @@ export interface ZapIssueDetail {
   issue_slug_out: string;
 }
 
+export interface ZapIssuePriceRow {
+  id: number;
+  issue_id: number;
+  price: number;
+  price_guides: {
+    effective_date: string;
+  } | null;
+  issues: {
+    title_id: number;
+  } | null;
+}
+
+export interface ZapIssueConditionRow {
+  id: number;
+  condition: number;
+  percentage: number;
+  description: string;
+  abv: string | null;
+}
+
 export interface ZapGradedPriceRow {
   grade: string;
   price: number;

@@ -11,35 +11,41 @@ import {
   getDashboardSummary,
   getMostValuableHoldings,
 } from '@/features/dashboard/repository';
-import { formatInteger, formatLegacyDateTime, formatMoney } from '@/lib/format';
+import { getValuationHealthSummary } from '@/features/valuation/repository';
+import { formatInteger, formatMoney } from '@/lib/format';
 
-const [summary, valuable, movers] = await Promise.all([
+const [summary, valuable, movers, valuationHealth] = await Promise.all([
   getDashboardSummary(),
   getMostValuableHoldings(8),
   getBiggestRecoveredMovers(10),
+  getValuationHealthSummary(),
 ]);
 ---
 
 <AppLayout title="Dashboard">
   <PageHeader
     title="Collection overview"
-    description="Your migrated collection and recovered legacy valuation history. Live market pricing is not connected yet."
+    description="Your collection, live Zap valuation coverage and recovered price history."
   />
 
-  <div class="mb-7 rounded-xl border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-100/80">
-    <strong class="font-semibold text-amber-200">
-      Legacy pricing baseline.
-    </strong>
-    The newest recovered price change is from{' '}
-    {formatLegacyDateTime(summary.latestValuationAt)}. Treat all stored values
-    as historical until the provider sync is rebuilt.
+  <div class="mb-7 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-400">
+    <strong class="font-semibold text-zinc-200">Valuation coverage.</strong>{' '}
+    {formatInteger(valuationHealth.liveHoldings)} holdings have live Zap
+    valuations; {formatInteger(valuationHealth.legacyHoldings)} still use the
+    migrated legacy fallback.{' '}
+    <a
+      href="/valuations"
+      class="font-medium text-zinc-200 underline underline-offset-2 hover:text-white"
+    >
+      View freshness and sync history
+    </a>
   </div>
 
   <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
     <StatCard
       label="Collection value"
       value={formatMoney(summary.collectionValueCents)}
-      detail="Quantity-adjusted legacy value"
+      detail="Quantity-adjusted stored value"
     />
     <StatCard
       label="Physical copies"
@@ -54,15 +60,15 @@ const [summary, valuable, movers] = await Promise.all([
     <StatCard
       label="Price history"
       value={formatInteger(summary.priceSnapshotCount)}
-      detail="Recovered change snapshots"
+      detail="Recovered + live change snapshots"
     />
   </section>
 
   <div class="mt-10 grid gap-10 xl:grid-cols-[1.12fr_0.88fr]">
     <section>
       <SectionHeader
-        title="Biggest recovered moves"
-        description="Largest individual Zap price changes recoverable from the legacy audit trail. These are historical, not current market movements."
+        title="Biggest recorded moves"
+        description="Largest stored price changes across recovered history and live Zap syncs."
       />
       <MoverList items={movers} />
     </section>
@@ -79,7 +85,7 @@ const [summary, valuable, movers] = await Promise.all([
   <section class="mt-10">
     <SectionHeader
       title="Collection health"
-      description="Useful cleanup and pricing gaps before live valuation is restored."
+      description="Storage and valuation coverage that still needs attention."
     />
     <CollectionHealth summary={summary} />
   </section>

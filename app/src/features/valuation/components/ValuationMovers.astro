@@ -1,0 +1,106 @@
+---
+import EmptyState from '@/components/EmptyState.astro';
+import type { ValuationMovement } from '@/features/valuation/types';
+import { movementPercent } from '@/features/valuation/calculate';
+import {
+  formatGrade,
+  formatMoney,
+  formatMoneyDelta,
+  formatPercent,
+} from '@/lib/format';
+
+interface Props {
+  items: ValuationMovement[];
+}
+
+const { items } = Astro.props;
+
+function delta(current: number | null, previous: number | null): number | null {
+  return current === null || previous === null ? null : current - previous;
+}
+---
+
+{items.length ? (
+  <div class="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950">
+    <table class="min-w-full text-left text-sm">
+      <thead class="border-b border-zinc-800 text-xs tracking-wide text-zinc-500 uppercase">
+        <tr>
+          <th class="px-4 py-3 font-semibold">Comic</th>
+          <th class="px-4 py-3 font-semibold">Current</th>
+          <th class="px-4 py-3 font-semibold">30 days</th>
+          <th class="px-4 py-3 font-semibold">90 days</th>
+          <th class="px-4 py-3 font-semibold">All time</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-900">
+        {items.map((item) => {
+          const thirtyDelta = delta(
+            item.currentPriceCents,
+            item.price30DaysCents,
+          );
+          const ninetyDelta = delta(
+            item.currentPriceCents,
+            item.price90DaysCents,
+          );
+          const allDelta = delta(item.currentPriceCents, item.firstPriceCents);
+
+          return (
+            <tr class="hover:bg-zinc-900/50">
+              <td class="px-4 py-3">
+                <a
+                  href={`/comics/${item.variantId}`}
+                  class="font-semibold text-zinc-100 hover:text-white"
+                >
+                  {item.seriesName} #{item.issueNumber}
+                </a>
+                <p class="mt-0.5 text-xs text-zinc-600">
+                  {[item.variantName, `Grade ${formatGrade(item.gradeTenths)}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              </td>
+              <td class="px-4 py-3 font-semibold text-zinc-200">
+                {formatMoney(item.currentPriceCents)}
+              </td>
+              <td class="px-4 py-3">
+                <p>{formatMoneyDelta(thirtyDelta)}</p>
+                <p class="text-xs text-zinc-600">
+                  {formatPercent(
+                    movementPercent(
+                      item.currentPriceCents,
+                      item.price30DaysCents,
+                    ),
+                  )}
+                </p>
+              </td>
+              <td class="px-4 py-3">
+                <p>{formatMoneyDelta(ninetyDelta)}</p>
+                <p class="text-xs text-zinc-600">
+                  {formatPercent(
+                    movementPercent(
+                      item.currentPriceCents,
+                      item.price90DaysCents,
+                    ),
+                  )}
+                </p>
+              </td>
+              <td class="px-4 py-3">
+                <p>{formatMoneyDelta(allDelta)}</p>
+                <p class="text-xs text-zinc-600">
+                  {formatPercent(
+                    movementPercent(
+                      item.currentPriceCents,
+                      item.firstPriceCents,
+                    ),
+                  )}
+                </p>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+) : (
+  <EmptyState title="No live valuation movements yet" />
+)}

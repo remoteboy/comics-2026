@@ -18,9 +18,10 @@ The tests do not depend on the migrated production collection or the 952 MB lega
 - a multi-copy holding,
 - non-contiguous box IDs,
 - creator credits and provider references,
-- recovered price history.
+- recovered price history,
+- explicit current-valuation rows and live valuation writes.
 
-Provider fixtures under `app/tests/fixtures/providers/` cover both generations of recorded Zap responses, stored Zap update events and a Comic Vine alternate-cover record. These fixtures contain no live credentials.
+Provider fixtures under `app/tests/fixtures/providers/` cover both generations of recorded Zap responses, stored Zap update events and a Comic Vine alternate-cover record. These fixtures contain no live credentials. Phase 7 tests additionally verify Zap condition multipliers, price-change-only snapshots, sync history and actual-grade valuation.
 
 Integration tests load the real D1 schema into an in-memory SQLite database and then apply this seed data. Playwright uses the same fixture to create `app/.test/comics.sqlite` before starting Astro.
 

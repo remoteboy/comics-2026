@@ -2,7 +2,7 @@
 
 A replacement for the legacy Laravel comics collection application, built around the existing collection data rather than around the old framework or provider implementations.
 
-The project is currently read-only while the migrated data, collection UX and provider boundaries are validated. Live valuation and intake providers come later.
+The migrated collection is browsable locally and now has a live Zap valuation path. Collection intake remains a later phase.
 
 ## Repository layout
 
@@ -13,6 +13,7 @@ The project is currently read-only while the migrated data, collection UX and pr
 - `docs/reconciliation.md` — migration acceptance results.
 - `docs/testing.md` — local/CI testing strategy and commands.
 - `docs/providers.md` — provider normalization boundary and recorded-data decisions.
+- `docs/valuation.md` — current valuation model, freshness and sync strategy.
 - `output/` — generated local database and provider archives; intentionally ignored by Git.
 
 ## Current stack
@@ -48,9 +49,10 @@ COMICS_DB_PATH=../output/comics.d1.sqlite
 LEGACY_IMAGE_ROOT=/absolute/path/to/legacy/storage/public/images
 ```
 
-Verify the local inputs and run the app:
+Apply any newer schema migrations, verify the local inputs and run the app:
 
 ```bash
+yarn db:migrate
 yarn smoke:data
 yarn smoke:covers
 yarn test

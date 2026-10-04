@@ -1,10 +1,11 @@
 # Comics application
 
-The read-only Astro application for the migrated comics collection.
+The Astro application for the migrated comics collection.
 
 ## Local commands
 
 ```bash
+yarn db:migrate
 yarn smoke:data
 yarn smoke:covers
 yarn dev
@@ -15,7 +16,7 @@ yarn test
 yarn test:e2e
 ```
 
-The app reads the local migrated SQLite database through a small `QueryDatabase` interface. Feature repositories accept that interface as an optional dependency, so production pages use the local application database while tests use a deterministic in-memory SQLite database. The same boundary can later be implemented by Cloudflare D1 without rewriting pages or components.
+The app accesses the migrated SQLite database through small query/mutation interfaces. Reads remain repository-driven, while valuation writes use an atomic `batch()` boundary that can later map to Cloudflare D1 without rewriting feature services. Run `yarn db:migrate` after schema changes before starting the app.
 
 Cover images are served from the existing legacy image directory configured through `LEGACY_IMAGE_ROOT`; the 952 MB image archive does not need to live inside this repository.
 
@@ -38,3 +39,7 @@ See `../docs/testing.md` for the full test workflow and the repository-level `do
 The `/providers` route keeps the recorded provider adapter visible alongside an opt-in probe of the current Zap Supabase API. Configure `ZAP_SUPABASE_PUBLISHABLE_KEY`, `ZAP_ACCESS_TOKEN` and `ZAP_REFRESH_TOKEN` in `.env`; none of these values is rendered in the page or used by normal collection browsing. Seed these values from a dedicated Zap login session rather than the browser session you normally use, so the app exclusively owns that refresh-token rotation chain.
 
 When a refresh token is configured, the server refreshes the Supabase session shortly before JWT expiry and retries one unauthorized request after rotating the session. Rotated access/refresh tokens are persisted outside the repository at `~/.config/comics-collection/zap-session.json` with owner-only permissions. Set `ZAP_SESSION_PATH` to override that location. Delete the session file if you intentionally replace the Zap browser session and want the values in `.env` to seed a new local session.
+
+## Valuations
+
+The `/valuations` route shows live Zap coverage, stale/legacy fallback counts, movement windows and provider sync history. Manual syncs consume Zap's capped recent-change feed for fast movers and can also refresh the next 50 stale/legacy holdings through the same latest-price request used by Zap's collection UI. Both paths revalue matching owned variants at the holding's actual raw grade using the current `issue_conditions` table. See `../docs/valuation.md` for the model and sync strategy.

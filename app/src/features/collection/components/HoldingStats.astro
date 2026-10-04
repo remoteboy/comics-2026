@@ -1,13 +1,18 @@
 ---
 import SectionHeader from '@/components/SectionHeader.astro';
 import type { HoldingListItem } from '@/features/collection/types';
-import { formatGrade, formatMoney } from '@/lib/format';
+import type { CurrentValuation } from '@/features/valuation/types';
+import { formatDateTime, formatGrade, formatMoney } from '@/lib/format';
 
 interface Props {
   holdings: HoldingListItem[];
+  valuations?: CurrentValuation[];
 }
 
-const { holdings } = Astro.props;
+const { holdings, valuations = [] } = Astro.props;
+const valuationsByHolding = new Map(
+  valuations.map((valuation) => [valuation.holdingId, valuation]),
+);
 ---
 
 <section>
@@ -20,51 +25,67 @@ const { holdings } = Astro.props;
     }
   />
   <div class="space-y-3">
-    {holdings.map((holding) => (
-      <div class="grid gap-4 rounded-xl border border-zinc-800 bg-zinc-900/45 p-4 sm:grid-cols-4">
-        <div>
-          <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-            Current value
-          </p>
-          <p class="mt-1 text-xl font-bold text-white">
-            {formatMoney(holding.valueCents)}
-          </p>
-          {holding.quantity > 1 && (
-            <p class="mt-1 text-xs text-zinc-600">
-              {formatMoney((holding.valueCents ?? 0) * holding.quantity)} total
+    {holdings.map((holding) => {
+      const valuation = valuationsByHolding.get(holding.holdingId);
+      const live = valuation?.provider === 'zap';
+
+      return (
+        <div class="grid gap-4 rounded-xl border border-zinc-800 bg-zinc-900/45 p-4 sm:grid-cols-4">
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+              Current value
             </p>
-          )}
-        </div>
-        <div>
-          <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-            Grade
-          </p>
-          <p class="mt-1 text-xl font-bold text-white">
-            {formatGrade(holding.gradeTenths)}
-          </p>
-        </div>
-        <div>
-          <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-            Box
-          </p>
-          {holding.boxId ? (
-            <a
-              href={`/boxes/${holding.boxId}`}
-              class="mt-1 inline-block text-xl font-bold text-white hover:text-zinc-300"
+            <p class="mt-1 text-xl font-bold text-white">
+              {formatMoney(holding.valueCents)}
+            </p>
+            {holding.quantity > 1 && (
+              <p class="mt-1 text-xs text-zinc-600">
+                {formatMoney((holding.valueCents ?? 0) * holding.quantity)}{' '}
+                total
+              </p>
+            )}
+            <p
+              class:list={[
+                'mt-1 text-xs',
+                live ? 'text-emerald-500' : 'text-amber-500',
+              ]}
             >
-              {holding.boxId}
-            </a>
-          ) : (
-            <p class="mt-1 text-xl font-bold text-amber-300">Unboxed</p>
-          )}
+              {live
+                ? `Live Zap · refreshed ${formatDateTime(valuation.refreshedAt)}`
+                : 'Legacy valuation fallback'}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+              Grade
+            </p>
+            <p class="mt-1 text-xl font-bold text-white">
+              {formatGrade(holding.gradeTenths)}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+              Box
+            </p>
+            {holding.boxId ? (
+              <a
+                href={`/boxes/${holding.boxId}`}
+                class="mt-1 inline-block text-xl font-bold text-white hover:text-zinc-300"
+              >
+                {holding.boxId}
+              </a>
+            ) : (
+              <p class="mt-1 text-xl font-bold text-amber-300">Unboxed</p>
+            )}
+          </div>
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+              Quantity
+            </p>
+            <p class="mt-1 text-xl font-bold text-white">{holding.quantity}</p>
+          </div>
         </div>
-        <div>
-          <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-            Quantity
-          </p>
-          <p class="mt-1 text-xl font-bold text-white">{holding.quantity}</p>
-        </div>
-      </div>
-    ))}
+      );
+    })}
   </div>
 </section>

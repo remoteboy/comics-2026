@@ -45,3 +45,19 @@ test('provider status page exposes recorded and current Zap profiles', async ({
     page.getByText('Current ZapKapow', { exact: true }),
   ).toBeVisible();
 });
+
+test('valuation navigation exposes freshness and sync history', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Valuations', exact: true }).click();
+
+  await expect(page).toHaveURL(/\/valuations$/);
+  await expect(page.getByRole('heading', { name: 'Valuations' })).toBeVisible();
+  await expect(
+    page.getByText('Legacy fallback', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Provider sync history', { exact: true }),
+  ).toBeVisible();
+});

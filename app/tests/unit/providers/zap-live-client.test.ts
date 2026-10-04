@@ -95,6 +95,39 @@ describe('ZapSupabaseClient', () => {
     );
   });
 
+  it('loads the latest raw price through the observed issue_prices query', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse([
+        {
+          id: 1,
+          issue_id: 196355,
+          price: 15,
+          price_guides: { effective_date: '2026-07-02T00:00:00+00:00' },
+          issues: { title_id: 7889 },
+        },
+      ]),
+    ) as typeof fetch;
+
+    const price = await client(fetchMock).latestRawPrice(196355);
+
+    const [input] = vi.mocked(fetchMock).mock.calls[0];
+    expect(String(input)).toBe(
+      'https://zap-project.example.test/rest/v1/issue_prices?select=id%2Cissue_id%2Cprice%2Cprice_guides%28effective_date%29%2Cissues%21fk_issue_prices_issue%28title_id%29&issue_id=in.%28196355%29&order=price_guide_id.desc%2Cid.desc&limit=1',
+    );
+    expect(price?.price).toBe(15);
+  });
+
+  it('loads the observed raw-comic condition multiplier table', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse([])) as typeof fetch;
+
+    await client(fetchMock).issueConditions();
+
+    const [input] = vi.mocked(fetchMock).mock.calls[0];
+    expect(String(input)).toBe(
+      'https://zap-project.example.test/rest/v1/issue_conditions?select=*&order=condition.desc',
+    );
+  });
+
   it('uses the effective graded-price view observed in the current app', async () => {
     const fetchMock = vi.fn(async () => jsonResponse([])) as typeof fetch;
 

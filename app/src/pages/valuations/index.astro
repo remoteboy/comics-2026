@@ -1,0 +1,152 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import SectionHeader from '@/components/SectionHeader.astro';
+import { getZapConfigurationStatus } from '@/features/providers/zap-status';
+import SyncHistory from '@/features/valuation/components/SyncHistory.astro';
+import ValuationHealth from '@/features/valuation/components/ValuationHealth.astro';
+import ValuationMovers from '@/features/valuation/components/ValuationMovers.astro';
+import {
+  getValuationHealthSummary,
+  listValuationMovements,
+  listValuationSyncRuns,
+} from '@/features/valuation/repository';
+import {
+  refreshZapValuationBackfill,
+  syncRecentZapValuations,
+} from '@/features/valuation/sync';
+import type { ValuationSyncResult } from '@/features/valuation/types';
+import { formatDateTime } from '@/lib/format';
+
+const configuration = getZapConfigurationStatus();
+let syncResult: ValuationSyncResult | null = null;
+let syncError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+
+  const action = data.get('action');
+
+  if (action === 'sync-zap' || action === 'backfill-zap') {
+    try {
+      syncResult =
+        action === 'backfill-zap'
+          ? await refreshZapValuationBackfill()
+          : await syncRecentZapValuations();
+    } catch (error) {
+      syncError =
+        error instanceof Error ? error.message : 'Valuation sync failed.';
+    }
+  }
+}
+
+const [summary, movements, runs] = await Promise.all([
+  getValuationHealthSummary(),
+  listValuationMovements(20),
+  listValuationSyncRuns(10),
+]);
+---
+
+<AppLayout title="Valuations">
+  <PageHeader
+    title="Valuations"
+    eyebrow="Market tracking"
+    description="Live Zap valuation freshness, movement windows and provider-sync history."
+  />
+
+  <div class="mb-7 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-4 text-sm text-zinc-400">
+    <p>
+      Live raw-comic values start from Zap's current NM price and apply the
+      condition multiplier for the holding's actual grade. Zap's recent-change
+      feed is capped, so it is used for fast movers while bounded backfill
+      batches progressively replace legacy/stale values with direct current
+      prices.
+    </p>
+    <p class="mt-2 text-xs text-zinc-600">
+      Legacy values remain explicit fallbacks until a recent change or backfill
+      refresh touches that holding; missing provider prices are left unknown.
+    </p>
+  </div>
+
+  <ValuationHealth summary={summary} />
+
+  <section class="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 class="font-semibold text-white">Zap price sync</h2>
+        <p class="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">
+          Pull recent database-wide price changes, match them to preserved Zap
+          variant IDs, and update owned holdings at their actual grade.
+        </p>
+      </div>
+      {configuration.configured ? (
+        <div class="flex flex-wrap gap-2">
+          <form method="post">
+            <input type="hidden" name="action" value="sync-zap" />
+            <button
+              type="submit"
+              class="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
+            >
+              Sync recent Zap changes
+            </button>
+          </form>
+          <form method="post">
+            <input type="hidden" name="action" value="backfill-zap" />
+            <button
+              type="submit"
+              class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
+            >
+              Refresh next 50 stale / legacy
+            </button>
+          </form>
+        </div>
+      ) : (
+        <a
+          href="/providers"
+          class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white"
+        >
+          Configure Zap
+        </a>
+      )}
+    </div>
+
+    {syncResult && (
+      <div class="mt-4 rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-200">
+        Sync #{syncResult.runId} {syncResult.status} ({syncResult.stats.mode}).{' '}
+        Made {syncResult.stats.providerRequests} provider requests, read{' '}
+        {syncResult.stats.providerRows} price rows and refreshed{' '}
+        {syncResult.stats.refreshedHoldings} holdings (
+        {syncResult.stats.changedHoldings} changed,{' '}
+        {syncResult.stats.unchangedHoldings} unchanged).
+      </div>
+    )}
+
+    {syncError && (
+      <div class="mt-4 rounded-lg border border-rose-900/60 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">
+        {syncError}
+      </div>
+    )}
+
+    {summary.latestRefreshAt && (
+      <p class="mt-4 text-xs text-zinc-600">
+        Latest live refresh: {formatDateTime(summary.latestRefreshAt)}
+      </p>
+    )}
+  </section>
+
+  <section class="mt-10">
+    <SectionHeader
+      title="Movement windows"
+      description="Current live price compared with the closest stored snapshot at least 30 days old, 90 days old and the earliest recovered observation where available."
+    />
+    <ValuationMovers items={movements} />
+  </section>
+
+  <section class="mt-10">
+    <SectionHeader
+      title="Provider sync history"
+      description="Each live valuation refresh records a provider run and its outcome."
+    />
+    <SyncHistory runs={runs} />
+  </section>
+</AppLayout>

@@ -83,3 +83,20 @@ INSERT INTO price_snapshots (
   (1, 'zap', 94, 1000, '2022-01-01 10:00:00', 2),
   (4, 'zap', 94, 1000, '2021-06-01 10:00:00', 3),
   (4, 'zap', 94, 2500, '2022-06-01 10:00:00', 4);
+
+INSERT INTO current_valuations (
+  holding_id,
+  provider,
+  provider_variant_id,
+  grade_tenths,
+  price_cents,
+  source_price_cents,
+  condition_percentage,
+  observed_at,
+  refreshed_at
+) VALUES
+  (1, 'legacy', '101', 94, 1000, 1000, 1.0, '2022-01-01 10:00:00', '2020-01-01 00:00:00'),
+  (2, 'legacy', NULL, 94, NULL, NULL, 1.0, '2020-01-01 00:00:00', '2020-01-01 00:00:00'),
+  (3, 'legacy', NULL, 80, 0, 0, 1.0, '2020-01-01 00:00:00', '2020-01-01 00:00:00'),
+  (4, 'legacy', NULL, 94, 2500, 2500, 1.0, '2022-06-01 10:00:00', '2020-01-01 00:00:00'),
+  (5, 'legacy', '205', 94, 3000, 3000, 1.0, '2020-01-01 00:00:00', '2020-01-01 00:00:00');

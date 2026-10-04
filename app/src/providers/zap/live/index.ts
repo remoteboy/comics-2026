@@ -1,7 +1,9 @@
 export type {
   ZapGradedPriceRow,
   ZapHistoricalPriceRow,
+  ZapIssueConditionRow,
   ZapIssueDetail,
+  ZapIssuePriceRow,
   ZapIssueListRow,
   ZapIssuesForTitleResponse,
   ZapRecentPriceChangeRow,

@@ -1,10 +1,10 @@
 import { runtimeConfig } from '@/config/runtime';
-import type { QueryDatabase } from '@/db/database';
+import type { MutationDatabase } from '@/db/database';
 import { SqliteDatabase } from '@/db/local/sqlite-database';
 
-let instance: QueryDatabase | undefined;
+let instance: MutationDatabase | undefined;
 
-export function database(): QueryDatabase {
+export function database(): MutationDatabase {
   if (!instance) {
     instance = new SqliteDatabase(runtimeConfig().databasePath);
   }

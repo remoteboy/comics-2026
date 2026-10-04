@@ -9,4 +9,4 @@ These fixtures are copied from the legacy export/archive and intentionally conta
 
 The archived application did not retain title-endpoint responses, so series tests intentionally normalize the series references embedded in issue responses instead of constructing fictional title payloads.
 
-Current Zap fixtures were reduced from the sanitized 2026-10-04 browser HAR and contain no bearer token, publishable key, username, email, or user ID. They cover title search, issue/variant listing, exact issue detail, graded prices, and the database-wide price-change feed.
+Current Zap fixtures were reduced from the sanitized 2026-10-04 browser HAR and contain no bearer token, publishable key, username, email, or user ID. They cover title search, issue/variant listing, exact issue detail, raw-comic condition multipliers, graded prices, and the database-wide price-change feed.

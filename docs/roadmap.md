@@ -161,20 +161,22 @@
 
 ## Phase 7 — Valuation engine
 
-- [ ] Add explicit current valuation model
-- [ ] Add price snapshots
-- [ ] Import recovered historical snapshots
-- [ ] Refresh valuation by actual holding grade
-- [ ] Record price only when materially changed
-- [ ] Calculate absolute movement
-- [ ] Calculate percentage movement
-- [ ] Track 30-day movement
-- [ ] Track 90-day movement
-- [ ] Track longer-term movement where data permits
-- [ ] Detect stale prices
-- [ ] Detect missing prices
-- [ ] Add provider-sync history
-- [ ] Add valuation freshness indicators
+- [x] Add explicit current valuation model
+- [x] Add price snapshots
+- [x] Import recovered historical snapshots
+- [x] Refresh valuation by actual holding grade
+- [x] Record price only when materially changed
+- [x] Calculate absolute movement
+- [x] Calculate percentage movement
+- [x] Track 30-day movement
+- [x] Track 90-day movement
+- [x] Track longer-term movement where data permits
+- [x] Detect stale prices
+- [x] Detect missing prices
+- [x] Add provider-sync history
+- [x] Add valuation freshness indicators
+- [x] Add bounded live backfill for legacy / stale holdings
+- [x] Advance application version to `0.6.0`
 
 ## Phase 8 — Sale intelligence
 
@@ -261,8 +263,8 @@
 
 ## Current position
 
-**Completed: Phase 6 — Live ZapKapow integration (`v0.5.0`)**
+**Completed: Phase 7 — Valuation engine (`v0.6.0`)**
 
-**Next: Phase 7 — Valuation engine**
+**Next: Phase 8 — Sale intelligence**
 
-The current Zap service is now integrated through its observed Supabase/PostgREST API. Live probes confirm preserved title and variant IDs, issue detail, raw NM valuation, graded-price access and the database-wide price-change feed while keeping live-provider failures isolated from collection browsing. Phase 7 can build current snapshots and movement tracking on top of those verified valuation sources.
+Current valuations are now explicit per holding, seeded from the migrated legacy baseline and progressively replaced with live ZapKapow values at the holding's actual grade. The engine records changed-price snapshots, 30-day / 90-day / longer-term movement where history permits, freshness and missing-price state, and provider-sync history. Zap's capped recent-change feed handles fast movers while bounded direct-price backfill progressively refreshes legacy/stale holdings without brute-forcing the entire collection in one run.

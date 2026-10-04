@@ -23,14 +23,20 @@ export async function getDashboardSummary(
       COALESCE(SUM(CASE WHEN current_value_cents = 0 THEN 1 ELSE 0 END), 0) AS zeroValueHoldings,
       COALESCE(SUM(
         CASE
-          WHEN current_value_cents IS NOT NULL
-            AND COALESCE(updated_at, created_at) < datetime('now', '-365 days')
+          WHEN h.current_value_cents IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM current_valuations cv
+              WHERE cv.holding_id = h.id
+                AND cv.provider = 'zap'
+                AND cv.refreshed_at >= datetime('now', '-7 days')
+            )
           THEN 1 ELSE 0
         END
       ), 0) AS staleValuedHoldings,
       (SELECT COUNT(*) FROM price_snapshots) AS priceSnapshotCount,
       (SELECT MAX(observed_at) FROM price_snapshots) AS latestValuationAt
-    FROM holdings
+    FROM holdings h
   `);
 
   if (!row) throw new Error('Unable to load dashboard summary.');

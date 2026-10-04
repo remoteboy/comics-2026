@@ -1,6 +1,8 @@
 import type {
   ZapGradedPriceRow,
+  ZapIssueConditionRow,
   ZapIssueDetail,
+  ZapIssuePriceRow,
   ZapIssuesForTitleResponse,
   ZapRecentPriceChangeRow,
   ZapTitleSearchRow,
@@ -82,6 +84,28 @@ export class ZapSupabaseClient {
       },
       'application/vnd.pgrst.object+json',
     );
+  }
+
+  issueConditions(): Promise<ZapIssueConditionRow[]> {
+    return this.request(
+      '/rest/v1/issue_conditions?select=*&order=condition.desc',
+    );
+  }
+
+  async latestRawPrice(
+    issueId: string | number,
+  ): Promise<ZapIssuePriceRow | null> {
+    const params = new URLSearchParams({
+      select:
+        'id,issue_id,price,price_guides(effective_date),issues!fk_issue_prices_issue(title_id)',
+      issue_id: `in.(${issueId})`,
+      order: 'price_guide_id.desc,id.desc',
+      limit: '1',
+    });
+    const rows = await this.request<ZapIssuePriceRow[]>(
+      `/rest/v1/issue_prices?${params}`,
+    );
+    return rows[0] ?? null;
   }
 
   gradedPrices(issueId: string | number): Promise<ZapGradedPriceRow[]> {
