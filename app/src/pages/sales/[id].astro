@@ -1,0 +1,208 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import SoldComps from '@/features/sales/components/SoldComps.astro';
+import { refreshSoldComps } from '@/features/sales/comps';
+import {
+  getSaleCandidate,
+  getSoldCompCache,
+  setSaleWatchState,
+} from '@/features/sales/repository';
+import {
+  formatGrade,
+  formatMoney,
+  formatMoneyDelta,
+  formatPercent,
+} from '@/lib/format';
+import type { ZapEbaySoldLookupResponse } from '@/providers/zap/live';
+
+const holdingId = Number(Astro.params.id);
+let candidate = await getSaleCandidate(holdingId);
+if (!candidate) return Astro.redirect('/sales');
+
+let actionMessage: string | null = null;
+let actionError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action');
+
+  try {
+    if (action === 'watch-state') {
+      const watched = data.get('watched') === '1';
+      await setSaleWatchState(holdingId, watched, candidate.notes);
+      actionMessage = watched
+        ? 'Added to watchlist.'
+        : 'Removed from watchlist.';
+    } else if (action === 'save-notes') {
+      const notes = String(data.get('notes') ?? '').trim() || null;
+      await setSaleWatchState(holdingId, candidate.watched === 1, notes);
+      actionMessage = 'Sale notes saved.';
+    } else if (action === 'sold-comps') {
+      await refreshSoldComps(holdingId, data.get('forceRefresh') === '1');
+      actionMessage = 'Sold comps refreshed from Zap.';
+    }
+  } catch (error) {
+    actionError =
+      error instanceof Error
+        ? error.message
+        : 'Sale intelligence action failed.';
+  }
+
+  candidate = (await getSaleCandidate(holdingId)) ?? candidate;
+}
+
+let comps: ZapEbaySoldLookupResponse | null = null;
+if (candidate.providerVariantId) {
+  const cached = await getSoldCompCache(candidate.providerVariantId);
+  if (cached) {
+    try {
+      comps = JSON.parse(cached.responseJson) as ZapEbaySoldLookupResponse;
+    } catch {
+      comps = null;
+    }
+  }
+}
+
+const title = `${candidate.seriesName} #${candidate.issueNumber}`;
+---
+
+<AppLayout title={`Sale review · ${title}`}>
+  <Breadcrumbs
+    items={[{ href: '/sales', label: 'Sale intelligence' }, { label: title }]}
+  />
+  <PageHeader
+    title={title}
+    eyebrow={candidate.variantName || 'Regular cover'}
+    description={`Holding ${holdingId} · grade ${formatGrade(candidate.gradeTenths)} · quantity ${candidate.quantity}`}
+  />
+
+  {actionMessage && (
+    <div class="mb-5 rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-200">
+      {actionMessage}
+    </div>
+  )}
+  {actionError && (
+    <div class="mb-5 rounded-lg border border-rose-900/60 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">
+      {actionError}
+    </div>
+  )}
+
+  <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+    <div class="space-y-6">
+      <section class="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+        <h2 class="font-semibold text-white">Value context</h2>
+        <div class="mt-4 grid gap-4 sm:grid-cols-3">
+          <div>
+            <p class="text-xs text-zinc-600">Current</p>
+            <p class="mt-1 text-xl font-semibold text-white">
+              {formatMoney(candidate.currentPriceCents)}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-zinc-600">30-day change</p>
+            <p class="mt-1 font-medium text-white">
+              {candidate.price30DaysCents == null ||
+              candidate.currentPriceCents == null
+                ? '—'
+                : formatMoneyDelta(
+                    candidate.currentPriceCents - candidate.price30DaysCents,
+                  )}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-zinc-600">90-day change</p>
+            <p class="mt-1 font-medium text-white">
+              {candidate.price90DaysCents == null ||
+              candidate.currentPriceCents == null
+                ? '—'
+                : formatMoneyDelta(
+                    candidate.currentPriceCents - candidate.price90DaysCents,
+                  )}
+            </p>
+          </div>
+        </div>
+        <p class="mt-4 text-sm text-zinc-500">
+          Best observed increase:{' '}
+          {formatMoneyDelta(candidate.bestAbsoluteMovementCents)} ·{' '}
+          {formatPercent(candidate.bestPercentageMovement)}.
+        </p>
+        {candidate.reasons.length > 0 && (
+          <p class="mt-2 text-sm text-emerald-300">
+            {candidate.reasons.join(' · ')}
+          </p>
+        )}
+      </section>
+
+      <SoldComps response={comps} holdingGradeTenths={candidate.gradeTenths} />
+    </div>
+
+    <div class="space-y-6">
+      <section class="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+        <h2 class="font-semibold text-white">Watch & notes</h2>
+        <form method="post" class="mt-4 space-y-3">
+          <input type="hidden" name="action" value="save-notes" />
+          <textarea
+            name="notes"
+            rows="5"
+            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+            placeholder="Why this might be worth selling, listing details, condition notes…"
+          >{candidate.notes ?? ''}</textarea>
+          <button
+            type="submit"
+            class="w-full rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
+          >
+            Save notes
+          </button>
+        </form>
+        <form method="post" class="mt-2">
+          <input type="hidden" name="action" value="watch-state" />
+          <input
+            type="hidden"
+            name="watched"
+            value={candidate.watched === 1 ? '0' : '1'}
+          />
+          <button
+            type="submit"
+            class="w-full rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
+          >
+            {candidate.watched === 1
+              ? 'Remove from watchlist'
+              : 'Add to watchlist'}
+          </button>
+        </form>
+      </section>
+
+      <section class="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+        <h2 class="font-semibold text-white">Market research</h2>
+        <div class="mt-4 space-y-2">
+          <a
+            href={candidate.ebayResearchUrl}
+            target="_blank"
+            rel="noreferrer"
+            class="block rounded-lg border border-zinc-700 px-4 py-2 text-center text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
+          >
+            Research sold listings on eBay
+          </a>
+          {candidate.providerVariantId && (
+            <form method="post">
+              <input type="hidden" name="action" value="sold-comps" />
+              <button
+                type="submit"
+                class="w-full rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
+              >
+                Check Zap sold comps
+              </button>
+            </form>
+          )}
+        </div>
+        <p class="mt-3 text-xs leading-5 text-zinc-600">
+          Sold comps are an on-demand research aid, not an automatic valuation
+          source. Verify cover, condition, signatures and unusual listings
+          before deciding to sell.
+        </p>
+      </section>
+    </div>
+  </div>
+</AppLayout>

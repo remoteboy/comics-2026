@@ -1,4 +1,6 @@
 import type {
+  ZapEbaySoldLookupRequest,
+  ZapEbaySoldLookupResponse,
   ZapGradedPriceRow,
   ZapIssueConditionRow,
   ZapIssueDetail,
@@ -115,6 +117,15 @@ export class ZapSupabaseClient {
     });
 
     return this.request(`/rest/v1/effective_graded_prices?${params}`);
+  }
+
+  ebaySoldLookup(
+    payload: ZapEbaySoldLookupRequest,
+  ): Promise<ZapEbaySoldLookupResponse> {
+    return this.request('/functions/v1/ebay-sold-lookup', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 
   recentPriceChanges(

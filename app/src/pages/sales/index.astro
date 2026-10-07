@@ -1,0 +1,140 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import SaleCandidateList from '@/features/sales/components/SaleCandidateList.astro';
+import SaleSummary from '@/features/sales/components/SaleSummary.astro';
+import {
+  getSaleIntelligenceSettings,
+  getSaleSummary,
+  listSaleCandidates,
+  updateSaleIntelligenceSettings,
+} from '@/features/sales/repository';
+import { formatMoney } from '@/lib/format';
+
+let settingsError: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  if (data.get('action') === 'settings') {
+    const minimumCurrentValueCents = Math.round(
+      Number(data.get('minimumCurrentValue')) * 100,
+    );
+    const minimumAbsoluteMovementCents = Math.round(
+      Number(data.get('minimumAbsoluteMovement')) * 100,
+    );
+    const minimumPercentageMovement = Number(
+      data.get('minimumPercentageMovement'),
+    );
+
+    if (
+      [
+        minimumCurrentValueCents,
+        minimumAbsoluteMovementCents,
+        minimumPercentageMovement,
+      ].some((value) => !Number.isFinite(value) || value < 0)
+    ) {
+      settingsError = 'Sale thresholds must be non-negative numbers.';
+    } else {
+      await updateSaleIntelligenceSettings({
+        minimumCurrentValueCents,
+        minimumAbsoluteMovementCents,
+        minimumPercentageMovement,
+      });
+    }
+  }
+}
+
+const [settings, summary, candidates] = await Promise.all([
+  getSaleIntelligenceSettings(),
+  getSaleSummary(),
+  listSaleCandidates(),
+]);
+---
+
+<AppLayout title="Sale intelligence">
+  <PageHeader
+    title="Sale intelligence"
+    eyebrow="Market tracking"
+    description="Surface meaningful price spikes, maintain a manual watchlist and research recent sold evidence before deciding what to list."
+  />
+
+  <SaleSummary summary={summary} />
+
+  <section class="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,32rem)] lg:items-start">
+      <div>
+        <h2 class="font-semibold text-white">Candidate thresholds</h2>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+          A live-priced holding becomes an automatic candidate when it meets the
+          minimum current value and either its 30/90-day dollar increase or
+          percentage increase crosses these thresholds. Manual watches always
+          remain visible.
+        </p>
+        <p class="mt-3 text-xs text-zinc-600">
+          Current settings: at least{' '}
+          {formatMoney(settings.minimumCurrentValueCents)}, then +
+          {formatMoney(settings.minimumAbsoluteMovementCents)} or +
+          {settings.minimumPercentageMovement.toFixed(1)}%.
+        </p>
+      </div>
+
+      <form
+        method="post"
+        class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3"
+      >
+        <input type="hidden" name="action" value="settings" />
+        <label class="text-sm text-zinc-400">
+          <span class="block text-xs text-zinc-600">Minimum current $</span>
+          <input
+            name="minimumCurrentValue"
+            type="number"
+            min="0"
+            step="0.01"
+            value={(settings.minimumCurrentValueCents / 100).toFixed(2)}
+            class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+          />
+        </label>
+        <label class="text-sm text-zinc-400">
+          <span class="block text-xs text-zinc-600">Absolute increase $</span>
+          <input
+            name="minimumAbsoluteMovement"
+            type="number"
+            min="0"
+            step="0.01"
+            value={(settings.minimumAbsoluteMovementCents / 100).toFixed(2)}
+            class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+          />
+        </label>
+        <label class="text-sm text-zinc-400">
+          <span class="block text-xs text-zinc-600">Percentage increase</span>
+          <input
+            name="minimumPercentageMovement"
+            type="number"
+            min="0"
+            step="0.1"
+            value={settings.minimumPercentageMovement}
+            class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+          />
+        </label>
+        <button
+          type="submit"
+          class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white sm:col-span-3 lg:col-span-1 xl:col-span-3"
+        >
+          Save thresholds
+        </button>
+      </form>
+    </div>
+    {settingsError && <p class="mt-3 text-sm text-rose-300">{settingsError}</p>}
+  </section>
+
+  <section class="mt-10">
+    <div class="mb-4">
+      <h2 class="text-lg font-semibold text-white">Candidates & watchlist</h2>
+      <p class="mt-1 text-sm text-zinc-500">
+        Automatic spike candidates and anything you have manually marked for
+        review.
+      </p>
+    </div>
+    <SaleCandidateList items={candidates} />
+  </section>
+</AppLayout>

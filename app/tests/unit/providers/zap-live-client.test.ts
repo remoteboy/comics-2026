@@ -139,6 +139,39 @@ describe('ZapSupabaseClient', () => {
     );
   });
 
+  it('posts the observed Zap eBay sold-comps Edge Function payload', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ success: true, sale_count: 3 }),
+    ) as typeof fetch;
+
+    await client(fetchMock).ebaySoldLookup({
+      issueId: 196357,
+      titleName: 'Edge Of Spider-Verse (2014)',
+      issueNumber: '2',
+      variant: '',
+      coverArtist: 'Robbi Rodriguez',
+      issueType: 'Issue',
+      publisher: 'Marvel',
+      coverDate: 'November 2014',
+      currentNmPrice: 300,
+      keyIssue: '1',
+      coverPrice: 3.99,
+      forceRefresh: false,
+    });
+
+    const [input, init] = vi.mocked(fetchMock).mock.calls[0];
+    expect(String(input)).toBe(
+      'https://zap-project.example.test/functions/v1/ebay-sold-lookup',
+    );
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      issueId: 196357,
+      issueNumber: '2',
+      currentNmPrice: 300,
+      forceRefresh: false,
+    });
+  });
+
   it('posts the observed recent-price-change cursor', async () => {
     const fetchMock = vi.fn(async () => jsonResponse([])) as typeof fetch;
 

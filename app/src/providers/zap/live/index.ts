@@ -1,4 +1,9 @@
 export type {
+  ZapEbayGradedPrice,
+  ZapEbayGradedSale,
+  ZapEbayRawSale,
+  ZapEbaySoldLookupRequest,
+  ZapEbaySoldLookupResponse,
   ZapGradedPriceRow,
   ZapHistoricalPriceRow,
   ZapIssueConditionRow,

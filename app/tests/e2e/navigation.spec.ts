@@ -64,3 +64,21 @@ test('valuation navigation exposes freshness and sync history', async ({
     page.getByText('Provider sync history', { exact: true }),
   ).toBeVisible();
 });
+
+test('sale intelligence navigation exposes thresholds and watchlist', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Sales', exact: true }).click();
+
+  await expect(page).toHaveURL(/\/sales$/);
+  await expect(
+    page.getByRole('heading', { name: 'Sale intelligence' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Candidate thresholds', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Candidates & watchlist', { exact: true }),
+  ).toBeVisible();
+});

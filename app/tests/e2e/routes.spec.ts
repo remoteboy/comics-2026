@@ -9,6 +9,8 @@ const routes = [
   ['/boxes/1', 'Short A'],
   ['/providers', 'Providers'],
   ['/valuations', 'Valuations'],
+  ['/sales', 'Sale intelligence'],
+  ['/sales/1', 'Alpha Adventures #1'],
 ] as const;
 
 for (const [path, text] of routes) {

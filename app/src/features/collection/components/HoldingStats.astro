@@ -30,7 +30,7 @@ const valuationsByHolding = new Map(
       const live = valuation?.provider === 'zap';
 
       return (
-        <div class="grid gap-4 rounded-xl border border-zinc-800 bg-zinc-900/45 p-4 sm:grid-cols-4">
+        <div class="grid gap-4 rounded-xl border border-zinc-800 bg-zinc-900/45 p-4 sm:grid-cols-5">
           <div>
             <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
               Current value
@@ -83,6 +83,17 @@ const valuationsByHolding = new Map(
               Quantity
             </p>
             <p class="mt-1 text-xl font-bold text-white">{holding.quantity}</p>
+          </div>
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+              Sale review
+            </p>
+            <a
+              href={`/sales/${holding.holdingId}`}
+              class="mt-2 inline-block rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white"
+            >
+              Review
+            </a>
           </div>
         </div>
       );

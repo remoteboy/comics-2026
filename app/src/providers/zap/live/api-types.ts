@@ -115,3 +115,63 @@ export interface ZapRecentPriceChangeRow {
   title_slug: string;
   total_count: number;
 }
+
+export interface ZapEbaySoldLookupRequest {
+  issueId: number;
+  titleName: string;
+  issueNumber: string;
+  variant: string;
+  coverArtist: string;
+  issueType: string;
+  publisher: string;
+  coverDate: string;
+  currentNmPrice: number;
+  keyIssue: string;
+  coverPrice: number;
+  forceRefresh: boolean;
+}
+
+export interface ZapEbayRawSale {
+  url: string;
+  title: string;
+  condition?: string | null;
+  date_sold: string;
+  sold_price: number;
+  cover_match?: boolean | null;
+  nm_equivalent?: number | null;
+  detected_grade?: number | null;
+  cover_image_url?: string | null;
+  cover_match_confidence?: number | null;
+}
+
+export interface ZapEbayGradedSale {
+  url: string;
+  title: string;
+  date_sold: string;
+  sold_price: number;
+  detected_grade?: number | null;
+  grading_company?: string | null;
+}
+
+export interface ZapEbayGradedPrice {
+  avg: number;
+  count: number;
+}
+
+export interface ZapEbaySoldLookupResponse {
+  success: boolean;
+  cached?: boolean;
+  window_days?: number;
+  issue_id?: number;
+  nm_price?: number | null;
+  sale_count?: number;
+  min_price?: number | null;
+  max_price?: number | null;
+  median_price?: number | null;
+  query_used?: string | null;
+  source_used?: string | null;
+  fetched_at?: string | null;
+  raw_sample?: ZapEbayRawSale[];
+  graded_prices?: Record<string, ZapEbayGradedPrice>;
+  graded_sample?: ZapEbayGradedSale[];
+}

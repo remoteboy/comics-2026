@@ -23,7 +23,7 @@ Cover images are served from the existing legacy image directory configured thro
 ## Structure
 
 - `src/components/` — shared presentation components.
-- `src/features/` — domain-oriented collection, boxes, dashboard and valuation code.
+- `src/features/` — domain-oriented collection, boxes, dashboard, valuation and sale-intelligence code.
 - `src/db/` — database interface and local adapter.
 - `src/providers/` — transport-free provider adapters and normalized provider types.
 - `src/pages/` — Astro routes kept deliberately thin.
@@ -43,3 +43,7 @@ When a refresh token is configured, the server refreshes the Supabase session sh
 ## Valuations
 
 The `/valuations` route shows live Zap coverage, stale/legacy fallback counts, movement windows and provider sync history. Manual syncs consume Zap's capped recent-change feed for fast movers. The baseline queue refreshes up to 50 unique Zap variants per batch through the same latest-price request used by Zap's collection UI, fetches each variant only once, and values every matching holding independently at its actual raw grade. The page can run that queue continuously and resume safely after interruption. See `../docs/valuation.md` for the model and sync strategy.
+
+## Sale intelligence
+
+The `/sales` route ranks live-priced holdings against configurable current-value, absolute-movement and percentage-movement thresholds. Watch state and notes are stored per holding so copies of the same cover at different grades can be reviewed independently. Individual review pages can call Zap's observed `ebay-sold-lookup` Edge Function on demand and cache the returned public sold evidence by Zap variant ID. See `../docs/sale-intelligence.md` for the sourcing and API-access decisions.
