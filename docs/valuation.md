@@ -34,9 +34,11 @@ The engine intentionally does not make one live request per holding. The collect
 It uses two complementary paths observed in the current Zap application:
 
 - **Recent changes** — the database-wide recent-price-change RPC is useful for fast movers, but the captured endpoint reports only the latest 100 rows. The sync therefore consumes that capped window without pretending it is a historical backfill.
-- **Backfill batches** — the exact `issue_prices` request used by Zap's collection UI fetches the latest raw price for one issue. The app refreshes up to 50 stale/legacy holdings per batch with six requests in flight, then applies the holding's actual grade multiplier.
+- **Baseline batches** — the exact `issue_prices` request used by Zap's collection UI fetches the latest raw price for one issue. The queue selects up to 50 unique Zap variant IDs, fetches each provider price once, then fans that value out to every owned holding at its own recorded grade. A variant with 9.4 and 8.0 copies therefore uses one provider request but produces two independent holding valuations.
 
-The `/valuations` page exposes both actions. Repeating backfill batches progressively replaces the migrated fallback with live prices; scheduled execution can reuse the same services during the Cloudflare deployment phase.
+Provider checks are recorded as `priced`, `no_price` or `error`. Legitimate no-price responses count as checked so the baseline can finish; errors remain retryable. The default backfill is deliberately conservative: one provider request at a time with a short delay between requests.
+
+The `/valuations` page can refresh a single batch or run the full resumable baseline sweep. Closing the page does not lose completed work because queue state lives in the database. Scheduled execution can reuse the same service during the Cloudflare deployment phase.
 
 ## Snapshots and movement
 
@@ -46,7 +48,7 @@ Movement windows compare the current live value with the closest stored observat
 
 ## Freshness
 
-A live Zap valuation is considered fresh for seven days. The UI distinguishes:
+A live Zap valuation is considered fresh for seven days. Baseline completion is tracked separately from freshness: the one-time sweep establishes that every mapped Zap variant was checked, while later recent-change and rolling reconciliation work keeps live values current. The UI distinguishes:
 
 - live/fresh values,
 - live but stale values,
@@ -63,4 +65,4 @@ After pulling the Phase 7 schema change, update an existing local database from 
 yarn db:migrate
 ```
 
-The migration runner recognizes the existing Phase 1 database as having `0001_initial.sql` already applied, then applies only newer migrations.
+The migration runner recognizes the existing Phase 1 database as having `0001_initial.sql` already applied, then applies only newer migrations. Phase 7.1 adds `0003_valuation_provider_checks.sql` for resumable variant-level baseline state.

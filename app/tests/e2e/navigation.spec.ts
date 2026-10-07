@@ -58,6 +58,9 @@ test('valuation navigation exposes freshness and sync history', async ({
     page.getByText('Legacy fallback', { exact: true }),
   ).toBeVisible();
   await expect(
+    page.getByText('Full valuation baseline', { exact: true }),
+  ).toBeVisible();
+  await expect(
     page.getByText('Provider sync history', { exact: true }),
   ).toBeVisible();
 });

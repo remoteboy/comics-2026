@@ -7,6 +7,7 @@ import SyncHistory from '@/features/valuation/components/SyncHistory.astro';
 import ValuationHealth from '@/features/valuation/components/ValuationHealth.astro';
 import ValuationMovers from '@/features/valuation/components/ValuationMovers.astro';
 import {
+  getValuationBackfillProgress,
   getValuationHealthSummary,
   listValuationMovements,
   listValuationSyncRuns,
@@ -16,7 +17,7 @@ import {
   syncRecentZapValuations,
 } from '@/features/valuation/sync';
 import type { ValuationSyncResult } from '@/features/valuation/types';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatInteger } from '@/lib/format';
 
 const configuration = getZapConfigurationStatus();
 let syncResult: ValuationSyncResult | null = null;
@@ -24,7 +25,6 @@ let syncError: string | null = null;
 
 if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
-
   const action = data.get('action');
 
   if (action === 'sync-zap' || action === 'backfill-zap') {
@@ -40,8 +40,9 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-const [summary, movements, runs] = await Promise.all([
+const [summary, backfill, movements, runs] = await Promise.all([
   getValuationHealthSummary(),
+  getValuationBackfillProgress(),
   listValuationMovements(20),
   listValuationSyncRuns(10),
 ]);
@@ -57,48 +58,50 @@ const [summary, movements, runs] = await Promise.all([
   <div class="mb-7 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-4 text-sm text-zinc-400">
     <p>
       Live raw-comic values start from Zap's current NM price and apply the
-      condition multiplier for the holding's actual grade. Zap's recent-change
-      feed is capped, so it is used for fast movers while bounded backfill
-      batches progressively replace legacy/stale values with direct current
-      prices.
+      condition multiplier for each holding's actual grade. One provider price
+      is fetched per unique Zap variant, then fanned out across every owned copy
+      independently.
     </p>
     <p class="mt-2 text-xs text-zinc-600">
-      Legacy values remain explicit fallbacks until a recent change or backfill
-      refresh touches that holding; missing provider prices are left unknown.
+      Legacy values remain explicit fallbacks until the baseline sweep checks
+      that Zap variant; a legitimate missing provider price is recorded so the
+      sweep can finish without retrying it forever.
     </p>
   </div>
 
   <ValuationHealth summary={summary} />
 
   <section class="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
       <div>
-        <h2 class="font-semibold text-white">Zap price sync</h2>
+        <h2 class="font-semibold text-white">Full valuation baseline</h2>
         <p class="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">
-          Pull recent database-wide price changes, match them to preserved Zap
-          variant IDs, and update owned holdings at their actual grade.
+          Work through each unique owned Zap variant once. Copies at different
+          grades share the provider fetch but receive separate holding values
+          and snapshots.
         </p>
       </div>
+
       {configuration.configured ? (
         <div class="flex flex-wrap gap-2">
-          <form method="post">
-            <input type="hidden" name="action" value="sync-zap" />
-            <button
-              type="submit"
-              class="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
-            >
-              Sync recent Zap changes
-            </button>
-          </form>
           <form method="post">
             <input type="hidden" name="action" value="backfill-zap" />
             <button
               type="submit"
               class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
             >
-              Refresh next 50 stale / legacy
+              Refresh next 50 variants
             </button>
           </form>
+          <button
+            type="button"
+            data-full-baseline
+            data-pending={backfill.pendingVariants}
+            class="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={backfill.pendingVariants === 0}
+          >
+            Run full baseline sync
+          </button>
         </div>
       ) : (
         <a
@@ -107,6 +110,79 @@ const [summary, movements, runs] = await Promise.all([
         >
           Configure Zap
         </a>
+      )}
+    </div>
+
+    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
+        <p class="text-xs text-zinc-600">Unique Zap variants</p>
+        <p class="mt-1 text-lg font-semibold text-zinc-200">
+          {formatInteger(backfill.totalZapVariants)}
+        </p>
+      </div>
+      <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
+        <p class="text-xs text-zinc-600">Still pending</p>
+        <p class="mt-1 text-lg font-semibold text-zinc-200" data-pending-count>
+          {formatInteger(backfill.pendingVariants)}
+        </p>
+      </div>
+      <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
+        <p class="text-xs text-zinc-600">Checked with no Zap price</p>
+        <p class="mt-1 text-lg font-semibold text-zinc-200">
+          {formatInteger(backfill.noPriceVariants)}
+        </p>
+      </div>
+      <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
+        <p class="text-xs text-zinc-600">Mapped legacy holdings</p>
+        <p class="mt-1 text-lg font-semibold text-zinc-200">
+          {formatInteger(backfill.legacyMappedHoldings)}
+        </p>
+      </div>
+    </div>
+
+    {(backfill.unresolvedVariants > 0 ||
+      backfill.failedVariants > 0 ||
+      backfill.unmappedHoldings > 0) && (
+      <p class="mt-4 text-xs leading-5 text-zinc-600">
+        {backfill.unresolvedVariants > 0 &&
+          `${formatInteger(backfill.unresolvedVariants)} checked variants still have holdings that cannot be valued at their recorded grade. `}
+        {backfill.failedVariants > 0 &&
+          `${formatInteger(backfill.failedVariants)} provider lookups currently need retrying. `}
+        {backfill.unmappedHoldings > 0 &&
+          `${formatInteger(backfill.unmappedHoldings)} holdings have no Zap variant ID and cannot be covered by this sweep.`}
+      </p>
+    )}
+
+    <p
+      class="mt-4 text-sm text-zinc-500"
+      data-baseline-status
+      aria-live="polite"
+    >
+      {backfill.pendingVariants === 0
+        ? 'Baseline provider checks are complete.'
+        : 'The full sync is resumable: closing this page does not lose completed checks.'}
+    </p>
+  </section>
+
+  <section class="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 class="font-semibold text-white">Recent Zap changes</h2>
+        <p class="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">
+          Pull the capped database-wide change feed and immediately refresh any
+          owned variants that appear in it.
+        </p>
+      </div>
+      {configuration.configured && (
+        <form method="post">
+          <input type="hidden" name="action" value="sync-zap" />
+          <button
+            type="submit"
+            class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
+          >
+            Sync recent Zap changes
+          </button>
+        </form>
       )}
     </div>
 
@@ -150,3 +226,68 @@ const [summary, movements, runs] = await Promise.all([
     <SyncHistory runs={runs} />
   </section>
 </AppLayout>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>(
+    '[data-full-baseline]',
+  );
+  const status = document.querySelector<HTMLElement>('[data-baseline-status]');
+  const pendingCount = document.querySelector<HTMLElement>(
+    '[data-pending-count]',
+  );
+
+  const sleep = (milliseconds: number) =>
+    new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+  button?.addEventListener('click', async () => {
+    if (!status || !pendingCount) return;
+
+    let pending = Number(button.dataset.pending ?? '0');
+    button.disabled = true;
+
+    try {
+      while (pending > 0) {
+        status.textContent = `Refreshing the next provider batch · ${pending.toLocaleString()} variants pending…`;
+
+        const response = await fetch('/api/valuations/backfill', {
+          method: 'POST',
+          headers: { accept: 'application/json' },
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? 'Valuation baseline sync failed.');
+        }
+
+        const nextPending = Number(
+          payload.progress?.pendingVariants ?? pending,
+        );
+        pendingCount.textContent = nextPending.toLocaleString();
+
+        if (nextPending === 0) {
+          status.textContent =
+            'Baseline provider checks are complete. Reloading…';
+          window.location.reload();
+          return;
+        }
+
+        if (nextPending >= pending) {
+          status.textContent =
+            'The sweep made no further progress. Review failed or unresolved variants before retrying.';
+          return;
+        }
+
+        pending = nextPending;
+        button.dataset.pending = String(pending);
+        await sleep(750);
+      }
+    } catch (error) {
+      status.textContent =
+        error instanceof Error
+          ? error.message
+          : 'Valuation baseline sync failed.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>

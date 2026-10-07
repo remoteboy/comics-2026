@@ -11,6 +11,10 @@ import type {
 const migrations = [
   new URL('../../../d1/migrations/0001_initial.sql', import.meta.url),
   new URL('../../../d1/migrations/0002_valuation_engine.sql', import.meta.url),
+  new URL(
+    '../../../d1/migrations/0003_valuation_provider_checks.sql',
+    import.meta.url,
+  ),
 ].map((url) => readFileSync(url, 'utf8'));
 const seed = readFileSync(
   new URL('../fixtures/test-data.sql', import.meta.url),

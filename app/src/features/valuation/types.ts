@@ -48,6 +48,17 @@ export interface ValuationHealthSummary {
   latestRefreshAt: string | null;
 }
 
+export interface ValuationBackfillProgress {
+  totalZapVariants: number;
+  checkedVariants: number;
+  pendingVariants: number;
+  noPriceVariants: number;
+  unresolvedVariants: number;
+  failedVariants: number;
+  legacyMappedHoldings: number;
+  unmappedHoldings: number;
+}
+
 export interface ValuationMovement {
   holdingId: number;
   variantId: number;
@@ -78,6 +89,10 @@ export interface ValuationSyncStats {
   providerRequests: number;
   providerRows: number;
   ownedRows: number;
+  selectedVariants: number;
+  pricedVariants: number;
+  noPriceVariants: number;
+  failedVariants: number;
   refreshedHoldings: number;
   changedHoldings: number;
   unchangedHoldings: number;

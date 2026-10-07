@@ -15,6 +15,7 @@ import {
   listZapValuationBackfillTargets,
   listZapValuationTargets,
   recordLiveValuation,
+  recordProviderPriceCheck,
 } from './repository';
 import type {
   ValuationSyncResult,
@@ -25,7 +26,8 @@ import type {
 const RECENT_PAGE_SIZE = 15;
 const RECENT_ROW_CAP = 100;
 const BACKFILL_BATCH_SIZE = 50;
-const BACKFILL_CONCURRENCY = 6;
+const BACKFILL_CONCURRENCY = 1;
+const BACKFILL_REQUEST_DELAY_MS = 500;
 
 export interface ZapValuationClient {
   issueConditions(): Promise<ZapIssueConditionRow[]>;
@@ -45,6 +47,7 @@ interface SyncOptions {
 interface BackfillOptions extends SyncOptions {
   batchSize?: number;
   concurrency?: number;
+  requestDelayMs?: number;
 }
 
 function groupTargetsByZapId(
@@ -68,11 +71,26 @@ function emptyStats(mode: 'recent' | 'backfill'): ValuationSyncStats {
     providerRequests: 0,
     providerRows: 0,
     ownedRows: 0,
+    selectedVariants: 0,
+    pricedVariants: 0,
+    noPriceVariants: 0,
+    failedVariants: 0,
     refreshedHoldings: 0,
     changedHoldings: 0,
     unchangedHoldings: 0,
     skippedHoldings: 0,
   };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : 'Provider price lookup failed.';
+}
+
+async function wait(milliseconds: number): Promise<void> {
+  if (milliseconds <= 0) return;
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function applyRawPrice(
@@ -151,13 +169,15 @@ export async function syncRecentZapValuations(
         const owned = targetsByZapId.get(String(row.issue_id));
         if (!owned?.length) continue;
 
-        stats.ownedRows += 1;
+        stats.ownedRows += owned.length;
+        stats.selectedVariants += 1;
 
         if (row.current_nm_price === null) {
           stats.skippedHoldings += owned.length;
           continue;
         }
 
+        stats.pricedVariants += 1;
         await applyRawPrice(
           owned,
           Math.round(row.current_nm_price * 100),
@@ -200,6 +220,7 @@ export async function refreshZapValuationBackfill(
   const startedAt = now.toISOString();
   const batchSize = options.batchSize ?? BACKFILL_BATCH_SIZE;
   const concurrency = options.concurrency ?? BACKFILL_CONCURRENCY;
+  const requestDelayMs = options.requestDelayMs ?? BACKFILL_REQUEST_DELAY_MS;
   const runId = await createValuationSyncRun(startedAt, db);
   const stats = emptyStats('backfill');
 
@@ -209,6 +230,7 @@ export async function refreshZapValuationBackfill(
       listZapValuationBackfillTargets(batchSize, db),
     ]);
     const groups = [...groupTargetsByZapId(targets).entries()];
+    stats.selectedVariants = groups.length;
     let index = 0;
 
     async function worker(): Promise<void> {
@@ -217,16 +239,43 @@ export async function refreshZapValuationBackfill(
         if (!current) return;
 
         const [zapVariantId, owned] = current;
-        const row = await client.latestRawPrice(zapVariantId);
+
+        if (stats.providerRequests > 0) await wait(requestDelayMs);
         stats.providerRequests += 1;
+        stats.ownedRows += owned.length;
+
+        let row: ZapIssuePriceRow | null;
+
+        try {
+          row = await client.latestRawPrice(zapVariantId);
+        } catch (error) {
+          stats.failedVariants += 1;
+          stats.skippedHoldings += owned.length;
+          await recordProviderPriceCheck(
+            zapVariantId,
+            'error',
+            new Date().toISOString(),
+            errorMessage(error),
+            db,
+          );
+          continue;
+        }
 
         if (!row) {
+          stats.noPriceVariants += 1;
           stats.skippedHoldings += owned.length;
+          await recordProviderPriceCheck(
+            zapVariantId,
+            'no_price',
+            new Date().toISOString(),
+            null,
+            db,
+          );
           continue;
         }
 
         stats.providerRows += 1;
-        stats.ownedRows += 1;
+        stats.pricedVariants += 1;
         await applyRawPrice(
           owned,
           Math.round(row.price * 100),
@@ -235,6 +284,13 @@ export async function refreshZapValuationBackfill(
           runId,
           conditions,
           stats,
+          db,
+        );
+        await recordProviderPriceCheck(
+          zapVariantId,
+          'priced',
+          new Date().toISOString(),
+          null,
           db,
         );
       }
@@ -246,16 +302,17 @@ export async function refreshZapValuationBackfill(
       ),
     );
 
+    const status = stats.failedVariants > 0 ? 'partial' : 'success';
     await finishValuationSyncRun(
       runId,
-      'success',
+      status,
       new Date().toISOString(),
       stats,
       null,
       db,
     );
 
-    return { runId, status: 'success', stats };
+    return { runId, status, stats };
   } catch (error) {
     await finishFailedRun(runId, stats, error, db);
     throw error;

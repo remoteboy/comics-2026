@@ -9,6 +9,7 @@ import { hasMaterialPriceChange } from './calculate';
 import type {
   CurrentValuation,
   PriceSnapshot,
+  ValuationBackfillProgress,
   ValuationHealthSummary,
   ValuationMovement,
   ValuationSyncRun,
@@ -84,28 +85,135 @@ export async function listZapValuationBackfillTargets(
 ): Promise<ZapValuationTarget[]> {
   return db.all<ZapValuationTarget>(
     `
+      WITH pending_variants AS (
+        SELECT
+          zap.external_id AS zap_variant_id,
+          MIN(h.id) AS first_holding_id,
+          MIN(CASE WHEN h.current_value_cents IS NULL THEN 0 ELSE 1 END) AS missing_rank,
+          MAX(CASE WHEN checks.status = 'error' THEN 1 ELSE 0 END) AS retry_rank
+        FROM holdings h
+        JOIN external_refs zap
+          ON zap.entity_type = 'variant'
+         AND zap.entity_id = h.variant_id
+         AND zap.provider = 'zap'
+        LEFT JOIN current_valuations cv ON cv.holding_id = h.id
+        LEFT JOIN provider_price_checks checks
+          ON checks.provider = 'zap'
+         AND checks.provider_variant_id = zap.external_id
+        WHERE (cv.holding_id IS NULL OR cv.provider != 'zap')
+          AND (checks.status IS NULL OR checks.status = 'error')
+        GROUP BY zap.external_id
+        ORDER BY retry_rank, missing_rank, first_holding_id
+        LIMIT ?
+      )
       SELECT
         h.id AS holdingId,
         h.variant_id AS variantId,
         zap.external_id AS zapVariantId,
         h.grade_tenths AS gradeTenths,
         h.current_value_cents AS currentValueCents
+      FROM pending_variants pending
+      JOIN external_refs zap
+        ON zap.entity_type = 'variant'
+       AND zap.provider = 'zap'
+       AND zap.external_id = pending.zap_variant_id
+      JOIN holdings h ON h.variant_id = zap.entity_id
+      ORDER BY pending.first_holding_id, h.id
+    `,
+    [limit],
+  );
+}
+
+export async function getValuationBackfillProgress(
+  db: QueryDatabase = database(),
+): Promise<ValuationBackfillProgress> {
+  const row = await db.get<ValuationBackfillProgress>(`
+    WITH zap_holdings AS (
+      SELECT
+        h.id AS holding_id,
+        zap.external_id AS zap_variant_id,
+        cv.provider AS valuation_provider
       FROM holdings h
       JOIN external_refs zap
         ON zap.entity_type = 'variant'
        AND zap.entity_id = h.variant_id
        AND zap.provider = 'zap'
       LEFT JOIN current_valuations cv ON cv.holding_id = h.id
-      WHERE cv.holding_id IS NULL
-         OR cv.provider != 'zap'
-         OR cv.refreshed_at < datetime('now', '-7 days')
-      ORDER BY
-        CASE WHEN h.current_value_cents IS NULL THEN 0 ELSE 1 END,
-        COALESCE(cv.refreshed_at, '') ASC,
-        h.id
-      LIMIT ?
+    ),
+    variant_state AS (
+      SELECT
+        zap_variant_id,
+        MAX(
+          CASE
+            WHEN valuation_provider IS NULL OR valuation_provider != 'zap' THEN 1
+            ELSE 0
+          END
+        ) AS has_legacy
+      FROM zap_holdings
+      GROUP BY zap_variant_id
+    )
+    SELECT
+      COUNT(*) AS totalZapVariants,
+      COALESCE(SUM(CASE
+        WHEN checks.status IN ('priced', 'no_price') THEN 1 ELSE 0 END), 0)
+        AS checkedVariants,
+      COALESCE(SUM(CASE
+        WHEN state.has_legacy = 1
+         AND (checks.status IS NULL OR checks.status = 'error')
+        THEN 1 ELSE 0 END), 0) AS pendingVariants,
+      COALESCE(SUM(CASE
+        WHEN state.has_legacy = 1 AND checks.status = 'no_price'
+        THEN 1 ELSE 0 END), 0) AS noPriceVariants,
+      COALESCE(SUM(CASE
+        WHEN state.has_legacy = 1 AND checks.status = 'priced'
+        THEN 1 ELSE 0 END), 0) AS unresolvedVariants,
+      COALESCE(SUM(CASE
+        WHEN state.has_legacy = 1 AND checks.status = 'error'
+        THEN 1 ELSE 0 END), 0) AS failedVariants,
+      (
+        SELECT COUNT(*)
+        FROM zap_holdings
+        WHERE valuation_provider IS NULL OR valuation_provider != 'zap'
+      ) AS legacyMappedHoldings,
+      (
+        SELECT COUNT(*)
+        FROM holdings h
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM external_refs zap
+          WHERE zap.entity_type = 'variant'
+            AND zap.entity_id = h.variant_id
+            AND zap.provider = 'zap'
+        )
+      ) AS unmappedHoldings
+    FROM variant_state state
+    LEFT JOIN provider_price_checks checks
+      ON checks.provider = 'zap'
+     AND checks.provider_variant_id = state.zap_variant_id
+  `);
+
+  if (!row) throw new Error('Unable to load valuation backfill progress.');
+  return row;
+}
+
+export async function recordProviderPriceCheck(
+  providerVariantId: string,
+  status: 'priced' | 'no_price' | 'error',
+  checkedAt: string,
+  errorText: string | null,
+  db: MutationDatabase = database(),
+): Promise<void> {
+  await db.run(
+    `
+      INSERT INTO provider_price_checks(
+        provider, provider_variant_id, status, checked_at, error_text
+      ) VALUES ('zap', ?, ?, ?, ?)
+      ON CONFLICT(provider, provider_variant_id) DO UPDATE SET
+        status = excluded.status,
+        checked_at = excluded.checked_at,
+        error_text = excluded.error_text
     `,
-    [limit],
+    [providerVariantId, status, checkedAt, errorText],
   );
 }
 

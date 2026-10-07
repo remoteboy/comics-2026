@@ -250,6 +250,7 @@ def import_data(
     db_path: Path,
     schema_path: Path,
     valuation_schema_path: Path,
+    provider_check_schema_path: Path,
     archive_dir: Path,
 ) -> dict[str, Any]:
     if db_path.exists():
@@ -411,12 +412,17 @@ def import_data(
         # Phase 7 adds the explicit current-valuation model after legacy holdings
         # and recovered price snapshots exist, so the migration can seed them.
         conn.executescript(valuation_schema_path.read_text(encoding="utf-8"))
+        conn.executescript(provider_check_schema_path.read_text(encoding="utf-8"))
         conn.execute(
             "CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)"
         )
         conn.executemany(
             "INSERT OR IGNORE INTO schema_migrations(name, applied_at) VALUES (?, datetime('now'))",
-            [(schema_path.name,), (valuation_schema_path.name,)],
+            [
+                (schema_path.name,),
+                (valuation_schema_path.name,),
+                (provider_check_schema_path.name,),
+            ],
         )
 
         metadata = {
@@ -493,6 +499,11 @@ def main() -> None:
         type=Path,
         default=Path("d1/migrations/0002_valuation_engine.sql"),
     )
+    parser.add_argument(
+        "--provider-check-schema",
+        type=Path,
+        default=Path("d1/migrations/0003_valuation_provider_checks.sql"),
+    )
     parser.add_argument("--archive-dir", type=Path, default=Path("output/provider-payloads"))
     parser.add_argument("--report", type=Path, default=Path("output/reconciliation.json"))
     args = parser.parse_args()
@@ -507,6 +518,7 @@ def main() -> None:
         args.db,
         args.schema,
         args.valuation_schema,
+        args.provider_check_schema,
         args.archive_dir,
     )
     args.report.parent.mkdir(parents=True, exist_ok=True)

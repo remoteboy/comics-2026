@@ -42,4 +42,4 @@ When a refresh token is configured, the server refreshes the Supabase session sh
 
 ## Valuations
 
-The `/valuations` route shows live Zap coverage, stale/legacy fallback counts, movement windows and provider sync history. Manual syncs consume Zap's capped recent-change feed for fast movers and can also refresh the next 50 stale/legacy holdings through the same latest-price request used by Zap's collection UI. Both paths revalue matching owned variants at the holding's actual raw grade using the current `issue_conditions` table. See `../docs/valuation.md` for the model and sync strategy.
+The `/valuations` route shows live Zap coverage, stale/legacy fallback counts, movement windows and provider sync history. Manual syncs consume Zap's capped recent-change feed for fast movers. The baseline queue refreshes up to 50 unique Zap variants per batch through the same latest-price request used by Zap's collection UI, fetches each variant only once, and values every matching holding independently at its actual raw grade. The page can run that queue continuously and resume safely after interruption. See `../docs/valuation.md` for the model and sync strategy.

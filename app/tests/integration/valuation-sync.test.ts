@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   getCurrentValuation,
+  getValuationBackfillProgress,
   listPriceHistory,
   listValuationSyncRuns,
 } from '@/features/valuation/repository';
@@ -145,6 +146,7 @@ describe('valuation sync', () => {
       now: new Date('2026-10-04T12:00:00.000Z'),
       batchSize: 1,
       concurrency: 1,
+      requestDelayMs: 0,
     });
 
     expect(result.stats.mode).toBe('backfill');
@@ -155,5 +157,85 @@ describe('valuation sync', () => {
       priceCents: 2000,
       sourcePriceCents: 2000,
     });
+  });
+
+  it('fetches a shared Zap variant once and values every holding at its own grade', async () => {
+    await db.run(
+      `
+        INSERT INTO holdings(
+          id, variant_id, grade_tenths, quantity, box_id, current_value_cents,
+          purchase_price_cents, created_at, updated_at
+        ) VALUES (6, 1, 80, 1, 1, 500, 400, '2020-01-01 00:00:00', '2020-01-01 00:00:00')
+      `,
+    );
+
+    let requests = 0;
+    const client: ZapValuationClient = {
+      async issueConditions() {
+        return conditions;
+      },
+      async latestRawPrice(issueId) {
+        requests += 1;
+        expect(String(issueId)).toBe('101');
+        return {
+          id: 9002,
+          issue_id: 101,
+          price: 10,
+          price_guides: { effective_date: '2026-10-01T00:00:00+00:00' },
+          issues: { title_id: 10 },
+        };
+      },
+      async recentPriceChanges() {
+        return [];
+      },
+    };
+
+    const result = await refreshZapValuationBackfill({
+      db,
+      client,
+      now: new Date('2026-10-04T12:00:00.000Z'),
+      batchSize: 1,
+      concurrency: 1,
+      requestDelayMs: 0,
+    });
+
+    expect(requests).toBe(1);
+    expect(result.stats.selectedVariants).toBe(1);
+    expect(result.stats.refreshedHoldings).toBe(2);
+    expect(await getCurrentValuation(1, db)).toMatchObject({
+      gradeTenths: 94,
+      priceCents: 1000,
+    });
+    expect(await getCurrentValuation(6, db)).toMatchObject({
+      gradeTenths: 80,
+      priceCents: 700,
+    });
+  });
+
+  it('records a missing provider price so the baseline queue can move on', async () => {
+    const client: ZapValuationClient = {
+      async issueConditions() {
+        return conditions;
+      },
+      async latestRawPrice() {
+        return null;
+      },
+      async recentPriceChanges() {
+        return [];
+      },
+    };
+
+    await refreshZapValuationBackfill({
+      db,
+      client,
+      now: new Date('2026-10-04T12:00:00.000Z'),
+      batchSize: 1,
+      concurrency: 1,
+      requestDelayMs: 0,
+    });
+
+    const progress = await getValuationBackfillProgress(db);
+    expect(progress.noPriceVariants).toBe(1);
+    expect(progress.pendingVariants).toBe(1);
   });
 });
