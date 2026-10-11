@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The project follows Semantic Versioning while the replacement application is developed.
 
+## [0.8.0] - 2026-10-11
+
+### Added
+
+- Cloudflare R2 storage for production comic cover images.
+- R2-backed cover adapter with safe object-key handling and missing-cover fallback behaviour.
+- Unit coverage for R2 cover serving, missing objects and unsafe keys.
+- Deployment documentation for provisioning and migrating cover images to R2.
+
+### Changed
+
+- Production cover requests now read from the private `COVERS` R2 binding instead of returning placeholder images.
+- Local development continues to serve covers from `LEGACY_IMAGE_ROOT`.
+- Application version advanced to `0.8.0`.
+
 ## [0.7.0] - 2026-10-11
 
 ### Added

@@ -9,9 +9,8 @@ The first deployment uses:
 - Cloudflare Workers for Astro SSR
 - D1 for collection/application data
 - D1 for the encrypted rotating Zap session
+- R2 for comic cover images
 - Worker secrets for Zap bootstrap credentials and the session-encryption key
-
-Cover images intentionally remain placeholders in the first Worker deployment. R2 migration is a separate step so database/auth deployment can be verified independently.
 
 ## Install Cloudflare tooling
 
@@ -115,11 +114,49 @@ On `/providers`, run **Refresh session now** once and then **Probe current API**
 
 Zap credentials never need to reach browser JavaScript. Provider calls and refresh-token rotation happen server-side in the Worker. If the refresh chain is ever revoked by Zap/Supabase, replace the bootstrap Worker secrets with values from a fresh dedicated Zap login and refresh once.
 
+## Migrate covers to R2
+
+Create the private production bucket:
+
+```bash
+yarn wrangler r2 bucket create comics-collection-covers
+```
+
+The Worker uses the `COVERS` R2 binding declared in `wrangler.jsonc`. The bucket stays private; cover bytes are served through the existing `/covers/:key` application route.
+
+The legacy cover directory is large enough that Cloudflare recommends `rclone` or another S3-compatible tool for bulk uploads rather than uploading one object at a time with Wrangler. Generate an R2 API access key in the Cloudflare dashboard, configure an `rclone` remote for Cloudflare R2, and use the R2 S3 endpoint for the account. Do not commit the access key or secret.
+
+With an `rclone` remote named `r2`, upload the directory referenced by local `LEGACY_IMAGE_ROOT` without adding a path prefix:
+
+```bash
+rclone copy /absolute/path/to/legacy/images \
+  r2:comics-collection-covers \
+  --progress
+```
+
+Preserving the filenames at the bucket root is important because `variants.image_key` is already the application object key.
+
+Compare the local and remote object counts after the copy:
+
+```bash
+rclone size /absolute/path/to/legacy/images
+rclone size r2:comics-collection-covers
+```
+
+Deploy the Worker after the bucket exists and the binding is configured:
+
+```bash
+yarn check
+yarn build:cloudflare
+yarn deploy
+```
+
+Verify several comics with known covers in production. Missing R2 objects continue to return the existing SVG placeholder rather than failing the page.
+
 ## Next deployment steps
 
-After the Worker + D1 deployment is reconciled:
+After R2 covers are reconciled:
 
-1. migrate local covers to R2 and replace the production placeholder cover adapter;
-2. protect the Worker with Cloudflare Access;
-3. add a scheduled valuation refresh;
-4. add production smoke checks and final reconciliation.
+1. protect the Worker with Cloudflare Access;
+2. add a scheduled valuation refresh;
+3. add production smoke checks and final reconciliation.

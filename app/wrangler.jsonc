@@ -26,4 +26,11 @@
       "id": "ebe100dee1e54e32a7f74b39e9b9327c",
     },
   ],
+
+  "r2_buckets": [
+    {
+      "binding": "COVERS",
+      "bucket_name": "comics-collection-covers",
+    },
+  ],
 }
