@@ -16,6 +16,8 @@
     "format:check": "prettier --ignore-path ../.prettierignore --check ..",
     "smoke:data": "node scripts/smoke-data.mjs",
     "smoke:covers": "node --env-file=.env scripts/smoke-covers.mjs",
+    "covers:backfill:comicvine": "node --env-file=.env scripts/backfill-comicvine-covers.mjs",
+    "covers:backfill": "node --env-file=.env scripts/backfill-zap-covers.mjs",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",

@@ -18,24 +18,35 @@ const db = new DatabaseSync(databasePath, { readOnly: true });
 const variants = db
   .prepare(
     `
-    SELECT image_key AS imageKey
-    FROM variants
-    WHERE image_key IS NOT NULL
-    ORDER BY id
-    LIMIT 50
+    SELECT
+      v.id AS variantId,
+      v.image_key AS imageKey,
+      EXISTS (
+        SELECT 1
+        FROM holdings h
+        WHERE h.variant_id = v.id
+      ) AS owned
+    FROM variants v
+    WHERE v.image_key IS NOT NULL
+      AND v.image_key <> ''
+    ORDER BY v.id
   `,
   )
   .all();
 
+db.close();
+
 let matched = 0;
 const missing = [];
+let ownedMissing = 0;
 
-for (const { imageKey } of variants) {
+for (const { variantId, imageKey, owned } of variants) {
   try {
     await access(resolve(root, imageKey));
     matched += 1;
   } catch {
-    missing.push(imageKey);
+    missing.push({ variantId, imageKey });
+    if (owned) ownedMissing += 1;
   }
 }
 
@@ -43,15 +54,19 @@ const files = await readdir(root);
 
 console.log(`✓ image root: ${root}`);
 console.log(`✓ files in image root: ${files.length}`);
-console.log(`✓ sampled cover keys found: ${matched}/${variants.length}`);
+console.log(`✓ cover keys found: ${matched}/${variants.length}`);
+console.log(`✓ missing cover files: ${missing.length}`);
+console.log(`✓ owned missing covers: ${ownedMissing}`);
 
 if (missing.length > 0) {
-  console.log(`Missing sample keys: ${missing.slice(0, 10).join(', ')}`);
-}
-
-if (matched === 0) {
+  console.log(
+    `Missing keys: ${missing
+      .slice(0, 10)
+      .map(({ variantId, imageKey }) => `${imageKey} (variant ${variantId})`)
+      .join(', ')}`,
+  );
   throw new Error(
-    'No sampled database image keys exist in LEGACY_IMAGE_ROOT; check the directory or legacy filename convention.',
+    `${missing.length} database cover keys are missing from LEGACY_IMAGE_ROOT (${ownedMissing} owned).`,
   );
 }
 
