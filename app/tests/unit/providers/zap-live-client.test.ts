@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ZapSupabaseClient } from '@/providers/zap/live/client';
 import { ZapLiveError } from '@/providers/zap/live/error';
+import { createZapSupabaseClient } from '@/providers/zap/live/server-client';
 import { MemoryZapSessionStore } from '@/providers/zap/live/session-store';
 
 function jsonResponse(payload: unknown, init: ResponseInit = {}): Response {
@@ -232,6 +233,77 @@ describe('ZapSupabaseClient', () => {
       code: 'endpoint_unavailable',
       status: 404,
     });
+  });
+});
+
+describe('Zap runtime fetch binding', () => {
+  function installReceiverSensitiveFetch(): void {
+    vi.stubGlobal('fetch', function (
+      this: typeof globalThis,
+      input: RequestInfo | URL,
+    ) {
+      if (this !== globalThis) throw new TypeError('Illegal invocation');
+
+      if (String(input).includes('/auth/v1/token?grant_type=refresh_token')) {
+        return Promise.resolve(
+          jsonResponse({
+            access_token: 'rotated-access-token',
+            refresh_token: 'rotated-refresh-token',
+            expires_in: 7200,
+          }),
+        );
+      }
+
+      return Promise.resolve(jsonResponse([]));
+    } as typeof fetch);
+  }
+
+  it('preserves the global fetch receiver during direct client refresh', async () => {
+    installReceiverSensitiveFetch();
+
+    try {
+      const zap = new ZapSupabaseClient({
+        apiBaseUrl: 'https://zap-project.example.test',
+        publishableKey: 'publishable-test-key',
+        accessToken: 'access-test-token',
+        refreshToken: 'refresh-test-token',
+      });
+
+      await expect(zap.refreshSession()).resolves.toMatchObject({
+        accessToken: 'rotated-access-token',
+        refreshToken: 'rotated-refresh-token',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('preserves the global fetch receiver through the server client factory', async () => {
+    installReceiverSensitiveFetch();
+    const store = new MemoryZapSessionStore({
+      accessToken: 'access-test-token',
+      refreshToken: 'refresh-test-token',
+    });
+
+    try {
+      const zap = createZapSupabaseClient(
+        {
+          apiBaseUrl: 'https://zap-project.example.test',
+          publishableKey: 'publishable-test-key',
+          accessToken: 'access-test-token',
+          refreshToken: 'refresh-test-token',
+        },
+        undefined,
+        store,
+      );
+
+      await expect(zap.refreshSession()).resolves.toMatchObject({
+        accessToken: 'rotated-access-token',
+        refreshToken: 'rotated-refresh-token',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
