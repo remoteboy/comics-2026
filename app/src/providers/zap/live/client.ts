@@ -36,7 +36,8 @@ export class ZapSupabaseClient {
 
   constructor(
     private readonly config: ZapLiveConfig,
-    private readonly fetchImpl: typeof fetch = fetch,
+    private readonly fetchImpl: typeof fetch = (input, init) =>
+      globalThis.fetch(input, init),
     private readonly sessionStore: ZapSessionStore = new MemoryZapSessionStore(
       sessionFromConfig(config),
     ),

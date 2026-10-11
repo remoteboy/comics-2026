@@ -40,3 +40,9 @@ venv/
 playwright-report/
 test-results/
 *.zip
+
+# Cloudflare local state/secrets
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example

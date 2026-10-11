@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "comics-collection",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-10-11",
+
+  "workers_dev": true,
+  "preview_urls": false,
+
+  "observability": {
+    "enabled": true,
+  },
+
+  "d1_databases": [
+    {
+      "binding": "COMICS_DB",
+      "database_name": "comics-collection",
+      "database_id": "01cb8cb1-553b-4269-98c5-db8bf4a8ba64",
+      "migrations_dir": "../../../d1/migrations",
+    },
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "ebe100dee1e54e32a7f74b39e9b9327c",
+    },
+  ],
+}

@@ -1,14 +1,18 @@
+import { runtimeEnvironment } from '@/platform/runtime-env';
+
 import type { ZapLiveConfig } from './types';
 
 export const CURRENT_ZAP_SUPABASE_URL =
   'https://tfwafsfsrnoymhdvjbgs.supabase.co';
 
 export function zapLiveConfig(): ZapLiveConfig {
+  const env = runtimeEnvironment();
+
   return {
-    apiBaseUrl: import.meta.env.ZAP_SUPABASE_URL ?? CURRENT_ZAP_SUPABASE_URL,
-    publishableKey: import.meta.env.ZAP_SUPABASE_PUBLISHABLE_KEY || undefined,
-    accessToken: import.meta.env.ZAP_ACCESS_TOKEN || undefined,
-    refreshToken: import.meta.env.ZAP_REFRESH_TOKEN || undefined,
-    sessionPath: import.meta.env.ZAP_SESSION_PATH || undefined,
+    apiBaseUrl: env.ZAP_SUPABASE_URL ?? CURRENT_ZAP_SUPABASE_URL,
+    publishableKey: env.ZAP_SUPABASE_PUBLISHABLE_KEY || undefined,
+    accessToken: env.ZAP_ACCESS_TOKEN || undefined,
+    refreshToken: env.ZAP_REFRESH_TOKEN || undefined,
+    sessionPath: env.ZAP_SESSION_PATH || undefined,
   };
 }

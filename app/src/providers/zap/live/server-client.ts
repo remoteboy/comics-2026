@@ -1,16 +1,12 @@
 import { ZapSupabaseClient } from './client';
-import { FileZapSessionStore } from './file-session-store';
-import { sessionFromConfig } from './session';
+import { createRuntimeZapSessionStore } from './runtime-session-store';
 import type { ZapLiveConfig, ZapSessionStore } from './types';
 
 export function createZapSupabaseClient(
   config: ZapLiveConfig,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = (input, init) => globalThis.fetch(input, init),
   sessionStore?: ZapSessionStore,
 ): ZapSupabaseClient {
-  const store =
-    sessionStore ??
-    new FileZapSessionStore(config.sessionPath, sessionFromConfig(config));
-
+  const store = sessionStore ?? createRuntimeZapSessionStore(config);
   return new ZapSupabaseClient(config, fetchImpl, store);
 }

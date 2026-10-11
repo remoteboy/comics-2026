@@ -1,13 +1,9 @@
-import { runtimeConfig } from '@/config/runtime';
 import type { MutationDatabase } from '@/db/database';
-import { SqliteDatabase } from '@/db/local/sqlite-database';
+import { createRuntimeDatabase } from '@/db/runtime';
 
 let instance: MutationDatabase | undefined;
 
 export function database(): MutationDatabase {
-  if (!instance) {
-    instance = new SqliteDatabase(runtimeConfig().databasePath);
-  }
-
+  instance ??= createRuntimeDatabase();
   return instance;
 }

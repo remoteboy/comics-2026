@@ -74,3 +74,7 @@ The migrated collection reconciles to:
 - $52,083.29 legacy stored value
 
 The importer intentionally preserves legacy provider identities and avoids speculative deduplication. See `docs/reconciliation.md` for details.
+
+## Cloudflare deployment
+
+See [`docs/cloudflare-deployment.md`](docs/cloudflare-deployment.md) for the staged Workers + D1 deployment workflow. Cover images remain local until the separate R2 migration step.
