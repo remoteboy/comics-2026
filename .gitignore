@@ -15,6 +15,7 @@ dist/
 !.yarn/releases
 !.yarn/versions
 .pnp.*
+app/.yarn/install-state.gz
 
 # Python
 __pycache__/

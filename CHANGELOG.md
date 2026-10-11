@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 The project follows Semantic Versioning while the replacement application is developed.
 
+## [0.7.0] - 2026-10-11
+
+### Added
+
+- Data health and sample menu states.
+- Cloudflare Workers deployment foundation using the Astro Cloudflare adapter.
+- Cloudflare D1 production database adapter and runtime database selection.
+- Data-only SQLite-to-D1 export tooling for migrating the existing collection.
+- Encrypted persistent ZapKapow session storage in D1.
+- Cloudflare deployment documentation and Wrangler configuration.
+
+### Changed
+
+- ZapKapow session handling now supports Cloudflare production persistence while retaining the local file-backed development workflow.
+- Production runtime configuration now selects Cloudflare-specific database, cover and session implementations.
+- ZapKapow live HTTP transport now preserves the correct Cloudflare runtime `fetch` binding.
+- Application version advanced to `0.7.0`.
+
+## [0.6.1] - 2026-10-04
+
+### Added
+
+- Resumable full-baseline ZapKapow valuation sync across all unique provider variants.
+- Provider price-check state for priced, no-price and error outcomes.
+- Integration coverage for multiple owned copies of the same variant at different grades.
+
+### Changed
+
+- Full valuation refresh deduplicates provider requests by Zap variant, then fans results out to each owned holding.
+- Holding valuations remain independent and grade-specific even when multiple copies share the same variant.
+- Application version advanced to `0.6.1`.
+
 ## [0.6.0] - 2026-10-04
 
 ### Added
