@@ -125,6 +125,7 @@ export async function listSeriesHoldings(
     `
       SELECT
         h.id AS holdingId,
+        h.edit_version AS editVersion,
         v.id AS variantId,
         i.number AS issueNumber,
         i.type AS issueType,

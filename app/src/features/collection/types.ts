@@ -46,6 +46,7 @@ export interface SeriesDetail {
 
 export interface HoldingListItem {
   holdingId: number;
+  editVersion: number;
   variantId: number;
   issueNumber: string;
   issueType: 'issue' | 'annual';

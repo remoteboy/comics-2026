@@ -9,6 +9,7 @@ import type { HoldingListItem } from '@/features/collection/types';
 function copy(overrides: Partial<HoldingListItem> = {}): HoldingListItem {
   return {
     holdingId: 1,
+    editVersion: 0,
     variantId: 1,
     issueNumber: '1',
     issueType: 'issue',

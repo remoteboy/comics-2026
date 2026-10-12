@@ -270,8 +270,8 @@ Cloudflare Access is implemented per the owner's confirmation. The fresh source 
 ### Current development order
 
 1. **Collection editing — first implementation ready for local review.** Copy grade, box, quantity, purchase price and value; add another copy of a stored cover; split one physical copy; select another stored cover of the same issue; retain history; reject stale/repeated writes. Apply migration `0006_collection_editing.sql` before using this code. See [collection-editing.md](collection-editing.md).
-2. **Complete collection editing.** Inline box reassignment, shared metadata editing and safe cover upload/repair. No destructive removal operation is included in the first patch.
-3. **Restore full intake.** Title-name search, exact issue/annual lookup, all provider cover choices, grade-based preview, automatic creators/publishers, manual fallback and Add & Next. The new editor only selects already stored covers; it does not yet replace provider intake.
+2. **Complete collection editing — implementation ready for local review.** Inline group box moves, cover-level shared metadata/credits editing and safe local/R2 cover upload/repair. Apply migration `0008_collection_management.sql`; see [collection-management.md](collection-management.md). Destructive removal remains deferred.
+3. **Restore full intake — next implementation priority.** Title-name search, exact issue/annual lookup, all provider cover choices, grade-based preview, automatic creators/publishers, manual fallback and Add & Next. The new editor only selects already stored covers; it does not yet replace provider intake.
 4. **Global search.** Owned comics, titles, creators, publishers and boxes.
 5. **Supporting management.** Titles, boxes, publishers, creators and shared cover metadata without exposing catalogue maintenance as a prerequisite for adding ownership.
 6. **Operational completion.** Verify existing sale intelligence, schedule valuations, backups/restore, provider recovery and release checks.

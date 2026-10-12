@@ -1,0 +1,429 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import CoverImage from '@/components/CoverImage.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { database } from '@/db';
+import {
+  getEditableMetadata,
+  metadataFromForm,
+  MetadataEditConflict,
+  saveMetadata,
+} from '@/features/collection/metadata-edit';
+import { limitedForm, sameOriginWrite } from '@/features/collection/write-form';
+import { MAX_COVER_BYTES, validateCover } from '@/covers/upload';
+
+const id = Number(Astro.params.id);
+const comic =
+  Number.isSafeInteger(id) && id > 0
+    ? await getEditableMetadata(id)
+    : undefined;
+if (!comic) return Astro.redirect('/collection');
+let data: FormData | undefined;
+let error: string | undefined;
+let conflict = false;
+if (Astro.request.method === 'POST') {
+  if (!sameOriginWrite(Astro.request, Astro.url, true)) {
+    Astro.response.status = 403;
+    error = 'Reload this comic page and try again.';
+  } else
+    try {
+      data = await limitedForm(Astro.request, MAX_COVER_BYTES + 128 * 1024);
+      const input = metadataFromForm(data, id);
+      const image = data.get('coverImage');
+      const cover =
+        image instanceof File && image.size
+          ? await validateCover(image)
+          : undefined;
+      await saveMetadata(input, cover);
+      return Astro.redirect(`/comics/${id}?metadataSaved=1`, 303);
+    } catch (cause) {
+      conflict = cause instanceof MetadataEditConflict;
+      Astro.response.status = conflict ? 409 : 400;
+      error =
+        cause instanceof Error
+          ? cause.message
+          : 'Unable to save comic details.';
+    }
+}
+const entered = (name: string, fallback: string) => {
+  const value = data?.get(name);
+  return typeof value === 'string' ? value : fallback;
+};
+const names = data?.getAll('creatorName');
+const roles = data?.getAll('creatorRole');
+const credits = names
+  ? names.map((name, index) => ({
+      name: typeof name === 'string' ? name : '',
+      role:
+        typeof roles?.[index] === 'string' ? (roles[index] as string) : null,
+    }))
+  : comic.credits;
+const rows = [...credits, { name: '', role: null }];
+const knownRoles = [
+  'writer',
+  'artist',
+  'penciler',
+  'inker',
+  'colorist',
+  'letterer',
+  'cover_artist',
+  'editor',
+];
+const roleLabel = (role: string) =>
+  role.replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase());
+const [publishers, creators] = await Promise.all([
+  database().all<{ name: string }>(
+    'SELECT name FROM publishers ORDER BY name COLLATE NOCASE LIMIT 1000',
+  ),
+  database().all<{ name: string }>(
+    'SELECT name FROM creators ORDER BY name COLLATE NOCASE LIMIT 1000',
+  ),
+]);
+const inputClass =
+  'mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white';
+const title = `${comic.seriesName} ${comic.issueType === 'annual' ? 'Annual ' : '#'}${comic.issueNumber}`;
+---
+
+<AppLayout title={`Edit comic details · ${title}`}>
+  <Breadcrumbs
+    items={[
+      { href: '/collection', label: 'Collection' },
+      { href: `/comics/${id}`, label: title },
+      { label: 'Edit comic details' },
+    ]}
+  />
+  <PageHeader title="Edit comic details" description={title} />
+  <p class="mb-5 text-sm leading-6 text-zinc-400">
+    These details and the cover image are shared by all copies of this cover.
+    Grades, boxes, purchase details and valuation histories stay with each copy.
+  </p>
+  {error && (
+    <div
+      role="alert"
+      class="mb-5 rounded-lg border border-rose-900 bg-rose-950/30 p-4 text-rose-200"
+    >
+      <p>{error}</p>
+      {conflict ? (
+        <a href={Astro.url.pathname} class="mt-2 inline-block underline">
+          Reload latest details
+        </a>
+      ) : (
+        <p class="mt-2 text-sm">
+          Your text is retained. If you selected an image, choose it again
+          before retrying.
+        </p>
+      )}
+    </div>
+  )}
+  <form
+    method="post"
+    enctype="multipart/form-data"
+    id="comic-details-form"
+    data-conflict={conflict ? 'true' : undefined}
+    class="space-y-6"
+  >
+    <input
+      type="hidden"
+      name="requestId"
+      value={entered('requestId', crypto.randomUUID())}
+    />
+    <input
+      type="hidden"
+      name="expectedVersion"
+      value={entered('expectedVersion', String(comic.editVersion))}
+    />
+    <section class="rounded-xl border border-zinc-800 p-5">
+      <h2 class="mb-4 font-semibold text-white">Comic details</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="text-sm text-zinc-300">
+          <span id="cover-name-label">Cover name</span>
+          <input
+            name="variantName"
+            aria-labelledby="cover-name-label"
+            maxlength="500"
+            value={entered('variantName', comic.variantName)}
+            class={inputClass}
+          />
+          <span class="mt-1 block text-xs text-zinc-500">
+            Leave blank for a regular cover.
+          </span>
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="story-label">Story title</span>
+          <input
+            name="storyTitle"
+            aria-labelledby="story-label"
+            maxlength="1000"
+            value={entered('storyTitle', comic.storyTitle ?? '')}
+            class={inputClass}
+          />
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="publisher-label">Publisher</span>
+          <input
+            name="publisherName"
+            aria-labelledby="publisher-label"
+            list="publisher-suggestions"
+            maxlength="500"
+            value={entered('publisherName', comic.publisherName ?? '')}
+            class={inputClass}
+          />
+          <span class="mt-1 block text-xs text-zinc-500">
+            Choose an existing name or enter a new one.
+          </span>
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="cover-price-label">Cover price (USD)</span>
+          <input
+            name="coverPrice"
+            aria-labelledby="cover-price-label"
+            type="number"
+            min="0"
+            step="0.01"
+            value={entered(
+              'coverPrice',
+              comic.coverPriceCents === null
+                ? ''
+                : (comic.coverPriceCents / 100).toFixed(2),
+            )}
+            class={inputClass}
+          />
+        </label>
+        <label class="text-sm text-zinc-300 sm:col-span-2">
+          <span id="appearance-label">First appearance / significance</span>
+          <input
+            name="firstAppearanceOf"
+            aria-labelledby="appearance-label"
+            maxlength="1000"
+            value={entered('firstAppearanceOf', comic.firstAppearanceOf ?? '')}
+            class={inputClass}
+          />
+        </label>
+        <label class="text-sm text-zinc-300 sm:col-span-2">
+          <span id="notes-label">Comic notes</span>
+          <textarea
+            name="details"
+            aria-labelledby="notes-label"
+            maxlength="20000"
+            rows="4"
+            class={inputClass}
+          >{entered('details', comic.details ?? '')}</textarea>
+        </label>
+      </div>
+    </section>
+    <section class="rounded-xl border border-zinc-800 p-5">
+      <h2 class="font-semibold text-white">Creators</h2>
+      <p class="mt-1 text-sm text-zinc-500">
+        Choose a role and enter a name. Existing names are suggested
+        automatically.
+      </p>
+      <div id="credit-rows" class="mt-4 space-y-3">
+        {rows.map((credit, index) => (
+          <div
+            data-credit-row
+            class="grid items-end gap-3 sm:grid-cols-[12rem_minmax(0,1fr)_auto]"
+          >
+            <label class="text-sm text-zinc-300">
+              <span id={`credit-role-${index}`} data-credit-label="role">
+                Role
+              </span>
+              <select
+                name="creatorRole"
+                aria-labelledby={`credit-role-${index}`}
+                class={inputClass}
+              >
+                <option value="" selected={!credit.role}>
+                  Unspecified
+                </option>
+                {[
+                  ...new Set([
+                    ...knownRoles,
+                    ...(credit.role ? [credit.role] : []),
+                  ]),
+                ].map((role) => (
+                  <option value={role} selected={credit.role === role}>
+                    {roleLabel(role)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label class="text-sm text-zinc-300">
+              <span id={`credit-name-${index}`} data-credit-label="name">
+                Creator name
+              </span>
+              <input
+                name="creatorName"
+                aria-labelledby={`credit-name-${index}`}
+                list="creator-suggestions"
+                maxlength="500"
+                value={credit.name}
+                class={inputClass}
+              />
+            </label>
+            <button
+              type="button"
+              data-remove-credit
+              class="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300"
+              aria-label={`Remove creator ${index + 1}`}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        id="add-credit"
+        class="mt-4 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200"
+      >
+        Add creator
+      </button>
+    </section>
+    <section class="rounded-xl border border-zinc-800 p-5">
+      <h2 class="font-semibold text-white">Cover image</h2>
+      <div class="mt-4 grid gap-5 sm:grid-cols-[10rem_minmax(0,1fr)]">
+        <div id="cover-preview">
+          <CoverImage
+            imageKey={comic.imageKey}
+            alt="Current cover"
+            class="w-full rounded-lg"
+          />
+        </div>
+        <label class="text-sm text-zinc-300">
+          <span id="cover-upload-label">Replace cover image</span>
+          <input
+            type="file"
+            name="coverImage"
+            id="cover-upload"
+            aria-labelledby="cover-upload-label"
+            aria-describedby="cover-upload-help"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            class="mt-2 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-2 file:text-white"
+          />
+          <span
+            id="cover-upload-help"
+            class="mt-2 block text-xs leading-5 text-zinc-500"
+          >
+            Optional JPEG, PNG, WebP or GIF, up to 5 MB. Choose a new image to
+            fix a missing or incorrect cover. The current image stays until you
+            save.
+          </span>
+          <span
+            id="cover-upload-status"
+            role="status"
+            class="mt-2 block text-sm text-zinc-300"
+          ></span>
+        </label>
+      </div>
+    </section>
+    <div class="flex flex-wrap gap-3">
+      <button
+        type="submit"
+        disabled={conflict}
+        class="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-zinc-950 disabled:opacity-50"
+      >
+        Save comic details
+      </button>
+      <a
+        href={`/comics/${id}`}
+        class="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm text-zinc-300"
+      >
+        Cancel
+      </a>
+    </div>
+    <datalist id="publisher-suggestions">
+      {publishers.map((p) => (
+        <option value={p.name} />
+      ))}
+    </datalist>
+    <datalist id="creator-suggestions">
+      {creators.map((c) => (
+        <option value={c.name} />
+      ))}
+    </datalist>
+  </form>
+</AppLayout>
+<script>
+  const rows = document.querySelector('#credit-rows');
+  const template = rows?.lastElementChild?.cloneNode(true) as
+    HTMLElement | undefined;
+  let counter = rows?.children.length ?? 0;
+  rows?.addEventListener('click', (event) => {
+    if ((event.target as HTMLElement).closest('[data-remove-credit]'))
+      (event.target as HTMLElement).closest('[data-credit-row]')?.remove();
+  });
+  document.querySelector('#add-credit')?.addEventListener('click', () => {
+    if (!rows || !template) return;
+    const row = template.cloneNode(true) as HTMLElement;
+    const name = row.querySelector<HTMLInputElement>('input');
+    const role = row.querySelector<HTMLSelectElement>('select');
+    if (name) name.value = '';
+    if (role) role.value = '';
+    row
+      .querySelectorAll<HTMLElement>('[data-credit-label]')
+      .forEach((label) => {
+        label.id = `credit-${label.dataset.creditLabel}-${counter}`;
+        label.parentElement
+          ?.querySelector('input, select')
+          ?.setAttribute('aria-labelledby', label.id);
+      });
+    row
+      .querySelector('button')
+      ?.setAttribute('aria-label', `Remove creator ${counter + 1}`);
+    counter++;
+    rows.append(row);
+    name?.focus();
+  });
+  const upload = document.querySelector<HTMLInputElement>('#cover-upload');
+  const preview =
+    document.querySelector<HTMLImageElement>('#cover-preview img');
+  const status = document.querySelector('#cover-upload-status');
+  const original = preview?.src;
+  let previewUrl: string | undefined;
+  upload?.addEventListener('change', () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const file = upload.files?.[0];
+    if (
+      file &&
+      (file.size > 5 * 1024 * 1024 ||
+        !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(
+          file.type,
+        ))
+    ) {
+      upload.value = '';
+      if (preview && original) preview.src = original;
+      if (status)
+        status.textContent =
+          'Choose a JPEG, PNG, WebP or GIF no larger than 5 MB.';
+      return;
+    }
+    if (status)
+      status.textContent = file
+        ? 'New cover preview. Save comic details to apply.'
+        : '';
+    if (preview) {
+      previewUrl = file ? URL.createObjectURL(file) : undefined;
+      preview.src = previewUrl ?? original ?? '';
+    }
+  });
+  const form = document.querySelector<HTMLFormElement>('#comic-details-form');
+  form?.addEventListener('submit', () => {
+    const button = form.querySelector<HTMLButtonElement>(
+      'button[type="submit"]',
+    );
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Saving…';
+    }
+  });
+  window.addEventListener('pageshow', () => {
+    const button = form?.querySelector<HTMLButtonElement>(
+      'button[type="submit"]',
+    );
+    if (button) {
+      button.disabled = form?.dataset.conflict === 'true';
+      button.textContent = 'Save comic details';
+    }
+  });
+</script>

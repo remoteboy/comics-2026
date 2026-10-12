@@ -1,0 +1,63 @@
+---
+import type { CopyGroup } from '../copy-groups';
+import type { BoxOption } from '@/features/boxes/repository';
+interface Props {
+  group: CopyGroup;
+  boxes: BoxOption[];
+}
+const { group, boxes } = Astro.props;
+const labelId = `move-box-${group.item.holdingId}`;
+---
+
+<details class="mt-3 px-3 pb-3 text-sm" data-box-move>
+  <summary class="cursor-pointer text-zinc-400 hover:text-white">
+    Move {group.quantity === 1 ? 'copy' : `${group.quantity} copies`}
+  </summary>
+  <form method="post" action="/api/copies/move" class="mt-2 space-y-2">
+    <input type="hidden" name="requestId" value={crypto.randomUUID()} />
+    <input
+      type="hidden"
+      name="copies"
+      value={JSON.stringify(
+        group.copies.map((copy) => ({
+          id: copy.holdingId,
+          version: copy.editVersion,
+        })),
+      )}
+    />
+    <input
+      type="hidden"
+      name="returnTo"
+      value={Astro.url.pathname + Astro.url.search}
+    />
+    <label class="block text-xs text-zinc-400">
+      <span id={labelId}>Move to box</span>
+      <select
+        name="boxId"
+        aria-labelledby={labelId}
+        class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-white"
+      >
+        <option value="" selected={group.item.boxId === null}>
+          Unboxed
+        </option>
+        {boxes.map((box) => (
+          <option value={String(box.id)} selected={group.item.boxId === box.id}>
+            Box {box.id}
+            {box.label ? ` · ${box.label}` : ''}
+          </option>
+        ))}
+      </select>
+    </label>
+    <button
+      type="submit"
+      class="rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-white"
+    >
+      Save box
+    </button>
+    {group.quantity > 1 && (
+      <p class="text-xs text-zinc-500">
+        Moves all copies shown here. Use Edit copies to move just one.
+      </p>
+    )}
+  </form>
+</details>

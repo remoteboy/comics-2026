@@ -6,10 +6,11 @@ import type { HoldingListItem } from '@/features/collection/types';
 import type { CurrentValuation } from '@/features/valuation/types';
 
 interface Props {
+  boxes: import('@/features/boxes/repository').BoxOption[];
   holdings: HoldingListItem[];
   valuations?: CurrentValuation[];
 }
-const { holdings, valuations = [] } = Astro.props;
+const { boxes, holdings, valuations = [] } = Astro.props;
 const groups = groupCopies(holdings);
 const labels = copyLabels(holdings);
 const valuationsByHolding = new Map(
@@ -30,6 +31,7 @@ const valuationsByHolding = new Map(
     {groups.map((group) => (
       <CopyGroupCard
         group={group}
+        boxes={boxes}
         labels={labels}
         valuations={valuationsByHolding}
       />

@@ -1,0 +1,21 @@
+---
+const error = Astro.url.searchParams.get('moveError');
+const moved = Astro.url.searchParams.get('moved') === '1';
+---
+
+{error && (
+  <p
+    role="alert"
+    class="mb-4 rounded-lg border border-rose-900 bg-rose-950/30 p-3 text-rose-200"
+  >
+    {error}
+  </p>
+)}
+{moved && (
+  <p
+    role="status"
+    class="mb-4 rounded-lg border border-emerald-900 bg-emerald-950/30 p-3 text-emerald-200"
+  >
+    Box updated.
+  </p>
+)}

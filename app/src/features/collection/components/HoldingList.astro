@@ -1,15 +1,18 @@
 ---
+import MoveCopies from '@/features/collection/components/MoveCopies.astro';
+import type { BoxOption } from '@/features/boxes/repository';
 import CoverImage from '@/components/CoverImage.astro';
 import type { HoldingListItem } from '@/features/collection/types';
 import { formatGrade } from '@/lib/format';
 import { groupCopies, groupUnitValue } from '@/features/collection/copy-groups';
 
 interface Props {
+  boxes: BoxOption[];
   holdings: HoldingListItem[];
   seriesName: string;
 }
 
-const { holdings, seriesName } = Astro.props;
+const { boxes, holdings, seriesName } = Astro.props;
 const groups = groupCopies(holdings);
 ---
 
@@ -27,49 +30,52 @@ const groups = groupCopies(holdings);
     {groups.map((group) => {
       const holding = group.item;
       return (
-        <a
-          href={`/comics/${holding.variantId}?copy=${holding.holdingId}`}
-          class="grid grid-cols-[4rem_5rem_minmax(12rem,1fr)_5rem_4rem_7rem_5rem] items-center gap-3 border-b border-zinc-800 px-4 py-2.5 last:border-0 hover:bg-zinc-900/70"
-        >
-          <div>
-            <p class="text-sm font-semibold text-zinc-200">
-              #{holding.issueNumber}
-            </p>
-            {holding.issueType === 'annual' && (
-              <p class="mt-0.5 text-[10px] font-semibold text-zinc-600 uppercase">
-                Annual
+        <div class="border-b border-zinc-800 last:border-0">
+          <a
+            href={`/comics/${holding.variantId}?copy=${holding.holdingId}`}
+            class="grid grid-cols-[4rem_5rem_minmax(12rem,1fr)_5rem_4rem_7rem_5rem] items-center gap-3 border-b border-zinc-800 px-4 py-2.5 last:border-0 hover:bg-zinc-900/70"
+          >
+            <div>
+              <p class="text-sm font-semibold text-zinc-200">
+                #{holding.issueNumber}
               </p>
-            )}
-          </div>
-          <CoverImage
-            imageKey={holding.imageKey}
-            alt={`${seriesName} #${holding.issueNumber}`}
-            class="w-10 rounded"
-          />
-          <div class="min-w-0">
-            <p class="truncate text-sm text-zinc-300">
-              {holding.variantName || 'Regular cover'}
-            </p>
-            {holding.firstAppearanceOf && (
-              <p class="mt-0.5 truncate text-xs text-amber-300/70">
-                {holding.firstAppearanceOf}
+              {holding.issueType === 'annual' && (
+                <p class="mt-0.5 text-[10px] font-semibold text-zinc-600 uppercase">
+                  Annual
+                </p>
+              )}
+            </div>
+            <CoverImage
+              imageKey={holding.imageKey}
+              alt={`${seriesName} #${holding.issueNumber}`}
+              class="w-10 rounded"
+            />
+            <div class="min-w-0">
+              <p class="truncate text-sm text-zinc-300">
+                {holding.variantName || 'Regular cover'}
               </p>
-            )}
-          </div>
-          <span class="text-sm text-zinc-400">
-            {formatGrade(holding.gradeTenths)}
-          </span>
-          <span class="text-sm text-zinc-400">{group.quantity}</span>
-          <span class="text-sm font-medium text-zinc-200">
-            {groupUnitValue(group)}
-            {group.unknownQuantity > 0 && (
-              <span class="mt-1 block text-xs text-amber-300">
-                {group.unknownQuantity} awaiting value
-              </span>
-            )}
-          </span>
-          <span class="text-sm text-zinc-500">{holding.boxId ?? '—'}</span>
-        </a>
+              {holding.firstAppearanceOf && (
+                <p class="mt-0.5 truncate text-xs text-amber-300/70">
+                  {holding.firstAppearanceOf}
+                </p>
+              )}
+            </div>
+            <span class="text-sm text-zinc-400">
+              {formatGrade(holding.gradeTenths)}
+            </span>
+            <span class="text-sm text-zinc-400">{group.quantity}</span>
+            <span class="text-sm font-medium text-zinc-200">
+              {groupUnitValue(group)}
+              {group.unknownQuantity > 0 && (
+                <span class="mt-1 block text-xs text-amber-300">
+                  {group.unknownQuantity} awaiting value
+                </span>
+              )}
+            </span>
+            <span class="text-sm text-zinc-500">{holding.boxId ?? '—'}</span>
+          </a>
+          <MoveCopies group={group} boxes={boxes} />
+        </div>
       );
     })}
   </div>

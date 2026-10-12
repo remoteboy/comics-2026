@@ -1,4 +1,6 @@
 ---
+import MoveNotice from '@/features/collection/components/MoveNotice.astro';
+import { listBoxOptions } from '@/features/boxes/repository';
 import AppLayout from '@/components/AppLayout.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import CoverImage from '@/components/CoverImage.astro';
@@ -21,6 +23,7 @@ import {
   listPriceHistory,
 } from '@/features/valuation/repository';
 
+const boxes = await listBoxOptions();
 const id = Number(Astro.params.id);
 const variant = await getVariant(id);
 if (!variant) return Astro.redirect('/collection');
@@ -48,6 +51,7 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
 ---
 
 <AppLayout title={title}>
+  <MoveNotice />
   <Breadcrumbs
     items={[
       { href: '/collection', label: 'Collection' },
@@ -61,7 +65,8 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
     description={variant.firstAppearanceOf || variant.storyTitle || undefined}
   />
 
-  {Astro.url.searchParams.get('saved') === '1' && (
+  {(Astro.url.searchParams.get('saved') === '1' ||
+    Astro.url.searchParams.get('metadataSaved') === '1') && (
     <p
       role="status"
       class="mb-5 rounded-lg border border-emerald-900 bg-emerald-950/30 p-4 text-emerald-200"
@@ -77,6 +82,12 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
         class="w-full rounded-xl border border-zinc-800"
       />
       <a
+        href={`/comics/${id}/edit`}
+        class="mt-3 block rounded-lg border border-zinc-700 px-3 py-2 text-center text-sm font-semibold text-zinc-200 hover:bg-zinc-900"
+      >
+        Edit comic details
+      </a>
+      <a
         href={`/collection/${variant.seriesId}`}
         class="mt-3 block rounded-lg border border-zinc-800 px-3 py-2 text-center text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white"
       >
@@ -85,7 +96,11 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
     </div>
 
     <div class="min-w-0 space-y-8">
-      <HoldingStats holdings={holdings} valuations={currentValuations} />
+      <HoldingStats
+        boxes={boxes}
+        holdings={holdings}
+        valuations={currentValuations}
+      />
 
       <section class="grid gap-6 xl:grid-cols-2">
         <VariantDetails variant={variant} />

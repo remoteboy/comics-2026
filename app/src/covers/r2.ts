@@ -38,6 +38,7 @@ export async function r2CoverResponse(
 
   const headers = new Headers({
     'Cache-Control': 'public, max-age=86400',
+    'X-Content-Type-Options': 'nosniff',
     'Content-Type': object.httpMetadata?.contentType ?? contentTypeFor(key),
   });
 

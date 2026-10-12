@@ -1,4 +1,6 @@
 ---
+import MoveNotice from '@/features/collection/components/MoveNotice.astro';
+import { listBoxOptions } from '@/features/boxes/repository';
 import AppLayout from '@/components/AppLayout.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import PageHeader from '@/components/PageHeader.astro';
@@ -7,6 +9,7 @@ import BoxHoldings from '@/features/boxes/components/BoxHoldings.astro';
 import { getBox, getBoxNavigation } from '@/features/boxes/repository';
 import { formatMoney } from '@/lib/format';
 
+const boxes = await listBoxOptions();
 const id = Number(Astro.params.id);
 const [box, navigation] = await Promise.all([getBox(id), getBoxNavigation(id)]);
 if (!box) return Astro.redirect('/boxes');
@@ -14,6 +17,7 @@ const title = box.label || `Box ${box.id}`;
 ---
 
 <AppLayout title={title}>
+  <MoveNotice />
   <Breadcrumbs items={[{ href: '/boxes', label: 'Boxes' }, { label: title }]} />
   <PageHeader title={title} eyebrow={`${box.type} box · #${box.id}`}>
     <div slot="actions" class="flex gap-2">
@@ -44,5 +48,5 @@ const title = box.label || `Box ${box.id}`;
     <StatCard label="Holdings" value={String(box.holdingCount)} />
   </section>
 
-  <BoxHoldings holdings={box.holdings} />
+  <BoxHoldings boxes={boxes} holdings={box.holdings} />
 </AppLayout>

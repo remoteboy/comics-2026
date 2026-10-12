@@ -79,6 +79,7 @@ export async function getBox(
     `
       SELECT
         h.id AS holdingId,
+        h.edit_version AS editVersion,
         v.id AS variantId,
         s.name AS seriesName,
         i.number AS issueNumber,
@@ -122,4 +123,12 @@ export async function getBoxNavigation(
   );
 
   return row ?? { previousId: null, nextId: null };
+}
+
+/** Lightweight choices without recalculating collection totals for each edit page. */
+export type BoxOption = Pick<BoxListItem, 'id' | 'type' | 'label'>;
+export async function listBoxOptions(
+  db: QueryDatabase = database(),
+): Promise<BoxOption[]> {
+  return db.all<BoxOption>('SELECT id, type, label FROM boxes ORDER BY id');
 }

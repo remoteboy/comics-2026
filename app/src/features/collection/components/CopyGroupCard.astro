@@ -1,4 +1,5 @@
 ---
+import MoveCopies from './MoveCopies.astro';
 import { purchaseDetails } from '@/features/collection/purchase-details';
 import type { CopyGroup } from '@/features/collection/copy-groups';
 import { groupUnitValue } from '@/features/collection/copy-groups';
@@ -7,11 +8,12 @@ import type { CurrentValuation } from '@/features/valuation/types';
 import { formatDateTime, formatGrade, formatMoney } from '@/lib/format';
 
 interface Props {
+  boxes: import('@/features/boxes/repository').BoxOption[];
   group: CopyGroup;
   labels: Map<number, string>;
   valuations: Map<number, CurrentValuation>;
 }
-const { group, labels, valuations } = Astro.props;
+const { boxes, group, labels, valuations } = Astro.props;
 const holding = group.item;
 function valuationLabel(copy: HoldingListItem): string {
   const valuation = valuations.get(copy.holdingId);
@@ -182,4 +184,5 @@ const summary =
       </div>
     </details>
   )}
+  <MoveCopies group={group} boxes={boxes} />
 </article>
