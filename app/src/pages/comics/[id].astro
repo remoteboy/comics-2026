@@ -5,6 +5,8 @@ import CoverImage from '@/components/CoverImage.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import CreatorCredits from '@/features/collection/components/CreatorCredits.astro';
 import ExternalReferences from '@/features/collection/components/ExternalReferences.astro';
+import { purchaseDetails } from '@/features/collection/purchase-details';
+import { copyLabels } from '@/features/collection/copy-groups';
 import HoldingStats from '@/features/collection/components/HoldingStats.astro';
 import VariantDetails from '@/features/collection/components/VariantDetails.astro';
 import {
@@ -28,8 +30,13 @@ const [holdings, credits, externalReferences] = await Promise.all([
   listVariantCredits(id),
   listVariantExternalReferences(id),
 ]);
+const labels = copyLabels(holdings);
+const selectedCopyId = Number(Astro.url.searchParams.get('copy'));
+const selectedCopy =
+  holdings.find((holding) => holding.holdingId === selectedCopyId) ??
+  holdings[0];
 const [history, valuations] = await Promise.all([
-  holdings[0] ? listPriceHistory(holdings[0].holdingId) : Promise.resolve([]),
+  selectedCopy ? listPriceHistory(selectedCopy.holdingId) : Promise.resolve([]),
   Promise.all(
     holdings.map((holding) => getCurrentValuation(holding.holdingId)),
   ),
@@ -54,6 +61,14 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
     description={variant.firstAppearanceOf || variant.storyTitle || undefined}
   />
 
+  {Astro.url.searchParams.get('saved') === '1' && (
+    <p
+      role="status"
+      class="mb-5 rounded-lg border border-emerald-900 bg-emerald-950/30 p-4 text-emerald-200"
+    >
+      Saved to your collection.
+    </p>
+  )}
   <div class="grid gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
     <div>
       <CoverImage
@@ -87,7 +102,38 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
       )}
 
       <section class="grid gap-6 xl:grid-cols-2">
-        <PriceHistory history={history} />
+        <div id="price-history">
+          {holdings.length > 1 && (
+            <form method="get" class="mb-3 flex items-end gap-2">
+              <label class="flex-1 text-sm text-zinc-400">
+                <span id="copy-history-label">Price history for</span>
+                <select
+                  name="copy"
+                  aria-labelledby="copy-history-label"
+                  class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                >
+                  {holdings.map((holding) => (
+                    <option
+                      value={String(holding.holdingId)}
+                      selected={selectedCopy?.holdingId === holding.holdingId}
+                    >
+                      {labels.get(holding.holdingId)} · grade{' '}
+                      {holding.gradeTenths == null
+                        ? 'unknown'
+                        : (holding.gradeTenths / 10).toFixed(1)}{' '}
+                      · {holding.boxId ? `Box ${holding.boxId}` : 'Unboxed'} ·
+                      quantity {holding.quantity} · {purchaseDetails(holding)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button class="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-white">
+                Show
+              </button>
+            </form>
+          )}
+          <PriceHistory history={history} />
+        </div>
         <ExternalReferences references={externalReferences} />
       </section>
     </div>

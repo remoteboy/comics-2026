@@ -2,6 +2,7 @@ output/
 dist/
 node_modules/
 .astro/
+.wrangler/
 .yarn/
 .pnp.*
 worker-configuration.d.ts

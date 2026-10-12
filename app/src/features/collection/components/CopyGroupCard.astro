@@ -1,0 +1,185 @@
+---
+import { purchaseDetails } from '@/features/collection/purchase-details';
+import type { CopyGroup } from '@/features/collection/copy-groups';
+import { groupUnitValue } from '@/features/collection/copy-groups';
+import type { HoldingListItem } from '@/features/collection/types';
+import type { CurrentValuation } from '@/features/valuation/types';
+import { formatDateTime, formatGrade, formatMoney } from '@/lib/format';
+
+interface Props {
+  group: CopyGroup;
+  labels: Map<number, string>;
+  valuations: Map<number, CurrentValuation>;
+}
+const { group, labels, valuations } = Astro.props;
+const holding = group.item;
+function valuationLabel(copy: HoldingListItem): string {
+  const valuation = valuations.get(copy.holdingId);
+  if (valuation?.provider === 'zap')
+    return `Live Zap · refreshed ${formatDateTime(valuation.refreshedAt)}`;
+  if (valuation?.provider === 'manual') return 'Manual estimate';
+  if (valuation?.provider === 'pending') return 'Awaiting valuation refresh';
+  return 'Legacy valuation fallback';
+}
+const sources = new Map<string, number>();
+for (const copy of group.copies) {
+  const provider = valuations.get(copy.holdingId)?.provider ?? 'legacy';
+  sources.set(provider, (sources.get(provider) ?? 0) + copy.quantity);
+}
+const sourceNames: Record<string, string> = {
+  zap: 'Live Zap',
+  manual: 'Manual estimate',
+  pending: 'Awaiting valuation refresh',
+  legacy: 'Legacy valuation fallback',
+};
+const summary =
+  group.copies.length === 1
+    ? valuationLabel(holding)
+    : [...sources]
+        .map(
+          ([source, count]) =>
+            `${count} ${sourceNames[source] ?? 'Legacy valuation fallback'}`,
+        )
+        .join(' · ');
+---
+
+<article
+  data-copy-group={group.key}
+  data-quantity={String(group.quantity)}
+  class="rounded-xl border border-zinc-800 bg-zinc-900/45 p-4"
+>
+  <div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
+    <div>
+      <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+        Value per copy
+      </p>
+      <p class="mt-1 text-xl font-bold text-white">{groupUnitValue(group)}</p>
+      {group.quantity > 1 && group.valuedQuantity > 0 && (
+        <p class="mt-1 text-xs text-zinc-500">
+          {formatMoney(group.knownTotalCents)}{' '}
+          {group.unknownQuantity ? 'known total' : 'total'}
+        </p>
+      )}
+      {group.unknownQuantity > 0 && (
+        <p class="mt-1 text-xs text-amber-300">
+          {group.unknownQuantity}{' '}
+          {group.unknownQuantity === 1 ? 'copy' : 'copies'} awaiting value
+        </p>
+      )}
+      <p
+        class:list={[
+          'mt-1 text-xs',
+          sources.size === 1 && sources.has('zap')
+            ? 'text-emerald-500'
+            : 'text-amber-500',
+        ]}
+      >
+        {summary}
+      </p>
+    </div>
+    <div>
+      <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+        Grade
+      </p>
+      <p class="mt-1 text-xl font-bold text-white">
+        {formatGrade(holding.gradeTenths)}
+      </p>
+    </div>
+    <div>
+      <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+        Box
+      </p>
+      {holding.boxId ? (
+        <a
+          href={`/boxes/${holding.boxId}`}
+          class="mt-1 inline-block text-xl font-bold text-white hover:text-zinc-300"
+        >
+          {holding.boxId}
+        </a>
+      ) : (
+        <p class="mt-1 text-xl font-bold text-amber-300">Unboxed</p>
+      )}
+    </div>
+    <div>
+      <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+        Quantity
+      </p>
+      <p class="mt-1 text-xl font-bold text-white">{group.quantity}</p>
+    </div>
+    <div class:list={group.copies.length > 1 ? 'sm:col-span-2' : undefined}>
+      <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+        Manage copies
+      </p>
+      {group.copies.length === 1 && (
+        <a
+          href={`/copies/${holding.holdingId}/edit`}
+          class="mt-2 inline-block rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500"
+        >
+          Edit {holding.quantity > 1 ? 'copies' : 'copy'}
+        </a>
+      )}
+      <a
+        href={`/copies/${holding.holdingId}/edit?action=add`}
+        class="mt-2 block text-sm text-zinc-400 underline hover:text-white"
+      >
+        Add another copy
+      </a>
+    </div>
+    {group.copies.length === 1 && (
+      <div>
+        <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+          Sale review
+        </p>
+        <a
+          href={`/sales/${holding.holdingId}`}
+          class="mt-2 inline-block rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-zinc-500"
+        >
+          Review
+        </a>
+      </div>
+    )}
+  </div>
+  {group.copies.length === 1 && (
+    <p class="mt-3 text-xs text-zinc-400">{purchaseDetails(holding)}</p>
+  )}
+  {group.copies.length > 1 && (
+    <details class="mt-4 border-t border-zinc-800 pt-3">
+      <summary class="cursor-pointer text-sm font-semibold text-zinc-200">
+        Edit copies & purchase details
+      </summary>
+      <p class="mt-3 text-xs leading-5 text-zinc-500">
+        Choose the copies to edit or review. Purchase details and price
+        histories remain independent.
+      </p>
+      <div class="mt-3 space-y-3">
+        {group.copies.map((copy) => (
+          <div class="flex flex-col justify-between gap-3 rounded-lg bg-zinc-950/40 p-3 sm:flex-row sm:items-center">
+            <div class="text-sm">
+              <p class="font-semibold text-zinc-200">
+                {labels.get(copy.holdingId)}
+              </p>
+              <p class="mt-1 text-zinc-400">
+                {formatMoney(copy.valueCents)} per copy · {valuationLabel(copy)}
+              </p>
+              <p class="mt-1 text-xs text-zinc-400">{purchaseDetails(copy)}</p>
+            </div>
+            <div class="flex flex-wrap gap-3 text-sm text-zinc-300">
+              <a href={`/copies/${copy.holdingId}/edit`} class="underline">
+                Edit {labels.get(copy.holdingId)?.toLowerCase()}
+              </a>
+              <a
+                href={`/comics/${copy.variantId}?copy=${copy.holdingId}#price-history`}
+                class="underline"
+              >
+                Price history
+              </a>
+              <a href={`/sales/${copy.holdingId}`} class="underline">
+                Sale review
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </details>
+  )}
+</article>

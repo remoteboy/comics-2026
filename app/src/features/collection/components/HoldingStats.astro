@@ -1,15 +1,17 @@
 ---
 import SectionHeader from '@/components/SectionHeader.astro';
+import CopyGroupCard from './CopyGroupCard.astro';
+import { copyLabels, groupCopies } from '@/features/collection/copy-groups';
 import type { HoldingListItem } from '@/features/collection/types';
 import type { CurrentValuation } from '@/features/valuation/types';
-import { formatDateTime, formatGrade, formatMoney } from '@/lib/format';
 
 interface Props {
   holdings: HoldingListItem[];
   valuations?: CurrentValuation[];
 }
-
 const { holdings, valuations = [] } = Astro.props;
+const groups = groupCopies(holdings);
+const labels = copyLabels(holdings);
 const valuationsByHolding = new Map(
   valuations.map((valuation) => [valuation.holdingId, valuation]),
 );
@@ -17,86 +19,20 @@ const valuationsByHolding = new Map(
 
 <section>
   <SectionHeader
-    title={holdings.length === 1 ? 'Owned copy' : 'Owned copies'}
-    description={
-      holdings.length > 1
-        ? 'This cover is represented by multiple holdings in the legacy collection.'
-        : undefined
+    title={
+      holdings.reduce((total, copy) => total + copy.quantity, 0) === 1
+        ? 'Owned copy'
+        : 'Owned copies'
     }
+    description="Copies with the same cover, grade and box are shown together."
   />
   <div class="space-y-3">
-    {holdings.map((holding) => {
-      const valuation = valuationsByHolding.get(holding.holdingId);
-      const live = valuation?.provider === 'zap';
-
-      return (
-        <div class="grid gap-4 rounded-xl border border-zinc-800 bg-zinc-900/45 p-4 sm:grid-cols-5">
-          <div>
-            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              Current value
-            </p>
-            <p class="mt-1 text-xl font-bold text-white">
-              {formatMoney(holding.valueCents)}
-            </p>
-            {holding.quantity > 1 && (
-              <p class="mt-1 text-xs text-zinc-600">
-                {formatMoney((holding.valueCents ?? 0) * holding.quantity)}{' '}
-                total
-              </p>
-            )}
-            <p
-              class:list={[
-                'mt-1 text-xs',
-                live ? 'text-emerald-500' : 'text-amber-500',
-              ]}
-            >
-              {live
-                ? `Live Zap · refreshed ${formatDateTime(valuation.refreshedAt)}`
-                : 'Legacy valuation fallback'}
-            </p>
-          </div>
-          <div>
-            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              Grade
-            </p>
-            <p class="mt-1 text-xl font-bold text-white">
-              {formatGrade(holding.gradeTenths)}
-            </p>
-          </div>
-          <div>
-            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              Box
-            </p>
-            {holding.boxId ? (
-              <a
-                href={`/boxes/${holding.boxId}`}
-                class="mt-1 inline-block text-xl font-bold text-white hover:text-zinc-300"
-              >
-                {holding.boxId}
-              </a>
-            ) : (
-              <p class="mt-1 text-xl font-bold text-amber-300">Unboxed</p>
-            )}
-          </div>
-          <div>
-            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              Quantity
-            </p>
-            <p class="mt-1 text-xl font-bold text-white">{holding.quantity}</p>
-          </div>
-          <div>
-            <p class="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-              Sale review
-            </p>
-            <a
-              href={`/sales/${holding.holdingId}`}
-              class="mt-2 inline-block rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white"
-            >
-              Review
-            </a>
-          </div>
-        </div>
-      );
-    })}
+    {groups.map((group) => (
+      <CopyGroupCard
+        group={group}
+        labels={labels}
+        valuations={valuationsByHolding}
+      />
+    ))}
   </div>
 </section>

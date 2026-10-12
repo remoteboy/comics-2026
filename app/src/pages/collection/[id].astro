@@ -59,7 +59,7 @@ function viewUrl(nextView: 'covers' | 'list'): string {
     description={[
       series.startYear,
       series.status,
-      `${series.issueCount} logical issues`,
+      `${series.issueCount} issues`,
     ]
       .filter(Boolean)
       .join(' · ')}
@@ -110,9 +110,9 @@ function viewUrl(nextView: 'covers' | 'list'): string {
     />
 
     <StatCard
-      label="Owned variants"
+      label="Owned covers"
       value={String(series.ownedVariants)}
-      detail={`${series.issueCount} logical issues`}
+      detail={`${series.issueCount} issues`}
     />
 
     <StatCard
@@ -145,7 +145,7 @@ function viewUrl(nextView: 'covers' | 'list'): string {
         type="search"
         name="q"
         value={query}
-        placeholder="Find issue, variant, creator or significance…"
+        placeholder="Find issue, cover, creator or significance…"
         class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
       />
     </label>

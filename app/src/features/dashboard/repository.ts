@@ -82,10 +82,11 @@ export async function getBiggestRecoveredMovers(
         SELECT
           ps.*,
           LAG(ps.price_cents) OVER (
-            PARTITION BY ps.holding_id
+            PARTITION BY ps.holding_id, ps.valuation_epoch
             ORDER BY ps.observed_at, ps.id
           ) AS previous_price_cents
         FROM price_snapshots ps
+        WHERE ps.provider IN ('zap', 'legacy')
       ),
       changes AS (
         SELECT
@@ -116,7 +117,7 @@ export async function getBiggestRecoveredMovers(
         changes.delta_cents AS deltaCents,
         changes.change_percent AS changePercent
       FROM changes
-      JOIN holdings h ON h.id = changes.holding_id
+      JOIN holdings h ON h.id = changes.holding_id AND h.valuation_epoch = changes.valuation_epoch
       JOIN variants v ON v.id = h.variant_id
       JOIN issues i ON i.id = v.issue_id
       JOIN series s ON s.id = i.series_id
@@ -137,10 +138,11 @@ export async function getRecentValuationChanges(
         SELECT
           ps.*,
           LAG(ps.price_cents) OVER (
-            PARTITION BY ps.holding_id
+            PARTITION BY ps.holding_id, ps.valuation_epoch
             ORDER BY ps.observed_at, ps.id
           ) AS previous_price_cents
         FROM price_snapshots ps
+        WHERE ps.provider IN ('zap', 'legacy')
       )
       SELECT
         h.id AS holdingId,
@@ -162,7 +164,7 @@ export async function getRecentValuationChanges(
           ELSE ((history.price_cents - history.previous_price_cents) * 100.0 / history.previous_price_cents)
         END AS changePercent
       FROM history
-      JOIN holdings h ON h.id = history.holding_id
+      JOIN holdings h ON h.id = history.holding_id AND h.valuation_epoch = history.valuation_epoch
       JOIN variants v ON v.id = h.variant_id
       JOIN issues i ON i.id = v.issue_id
       JOIN series s ON s.id = i.series_id

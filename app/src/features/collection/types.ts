@@ -54,6 +54,8 @@ export interface HoldingListItem {
   quantity: number;
   boxId: number | null;
   valueCents: number | null;
+  purchasePriceCents: number | null;
+  purchaseDate: string | null;
   imageKey: string | null;
   firstAppearanceOf: string | null;
 }

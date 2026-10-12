@@ -88,6 +88,8 @@ async function listSaleCandidateRows(
         SELECT ps.price_cents
         FROM price_snapshots ps
         WHERE ps.holding_id = h.id
+          AND ps.valuation_epoch = h.valuation_epoch
+            AND ps.provider IN ('zap', 'legacy')
           AND ps.observed_at <= datetime('now', '-30 days')
         ORDER BY ps.observed_at DESC, ps.id DESC
         LIMIT 1
@@ -96,6 +98,8 @@ async function listSaleCandidateRows(
         SELECT ps.price_cents
         FROM price_snapshots ps
         WHERE ps.holding_id = h.id
+          AND ps.valuation_epoch = h.valuation_epoch
+            AND ps.provider IN ('zap', 'legacy')
           AND ps.observed_at <= datetime('now', '-90 days')
         ORDER BY ps.observed_at DESC, ps.id DESC
         LIMIT 1

@@ -1,7 +1,8 @@
 ---
 import CoverImage from '@/components/CoverImage.astro';
 import type { HoldingListItem } from '@/features/collection/types';
-import { formatGrade, formatMoney } from '@/lib/format';
+import { formatGrade } from '@/lib/format';
+import { groupCopies, groupUnitValue } from '@/features/collection/copy-groups';
 
 interface Props {
   holdings: HoldingListItem[];
@@ -9,53 +10,62 @@ interface Props {
 }
 
 const { holdings, seriesName } = Astro.props;
+const groups = groupCopies(holdings);
 ---
 
 <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-  {holdings.map((holding) => (
-    <a
-      href={`/comics/${holding.variantId}`}
-      class="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700"
-    >
-      <div class="relative">
-        <CoverImage
-          imageKey={holding.imageKey}
-          alt={`${seriesName} #${holding.issueNumber}`}
-          class="w-full"
-        />
-        {holding.issueType === 'annual' && (
-          <span class="absolute top-2 left-2 rounded-md bg-zinc-950/90 px-2 py-1 text-[10px] font-semibold tracking-wide text-zinc-300 uppercase">
-            Annual
-          </span>
-        )}
-        {holding.quantity > 1 && (
-          <span class="absolute top-2 right-2 rounded-full bg-zinc-950/90 px-2 py-1 text-[10px] font-bold text-white">
-            ×{holding.quantity}
-          </span>
-        )}
-      </div>
-      <div class="p-3">
-        <div class="flex items-start justify-between gap-2">
-          <p class="min-w-0 truncate text-sm font-semibold text-zinc-100">
-            #{holding.issueNumber}
+  {groups.map((group) => {
+    const holding = group.item;
+    return (
+      <a
+        href={`/comics/${holding.variantId}?copy=${holding.holdingId}`}
+        class="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700"
+      >
+        <div class="relative">
+          <CoverImage
+            imageKey={holding.imageKey}
+            alt={`${seriesName} #${holding.issueNumber}`}
+            class="w-full"
+          />
+          {holding.issueType === 'annual' && (
+            <span class="absolute top-2 left-2 rounded-md bg-zinc-950/90 px-2 py-1 text-[10px] font-semibold tracking-wide text-zinc-300 uppercase">
+              Annual
+            </span>
+          )}
+          {group.quantity > 1 && (
+            <span class="absolute top-2 right-2 rounded-full bg-zinc-950/90 px-2 py-1 text-[10px] font-bold text-white">
+              ×{group.quantity}
+            </span>
+          )}
+        </div>
+        <div class="p-3">
+          <div class="flex items-start justify-between gap-2">
+            <p class="min-w-0 truncate text-sm font-semibold text-zinc-100">
+              #{holding.issueNumber}
+            </p>
+            <p class="shrink-0 text-sm font-semibold text-zinc-300">
+              {groupUnitValue(group)}
+            </p>
+          </div>
+          {group.unknownQuantity > 0 && (
+            <p class="mt-1 text-xs text-amber-300">
+              {group.unknownQuantity} awaiting value
+            </p>
+          )}
+          <p class="mt-1 truncate text-xs text-zinc-500">
+            {holding.variantName || 'Regular cover'}
           </p>
-          <p class="shrink-0 text-sm font-semibold text-zinc-300">
-            {formatMoney(holding.valueCents)}
+          {holding.firstAppearanceOf && (
+            <p class="mt-1 line-clamp-2 text-xs text-amber-300/75">
+              {holding.firstAppearanceOf}
+            </p>
+          )}
+          <p class="mt-2 text-xs text-zinc-600">
+            Grade {formatGrade(holding.gradeTenths)} ·{' '}
+            {holding.boxId ? `Box ${holding.boxId}` : 'Unboxed'}
           </p>
         </div>
-        <p class="mt-1 truncate text-xs text-zinc-500">
-          {holding.variantName || 'Regular cover'}
-        </p>
-        {holding.firstAppearanceOf && (
-          <p class="mt-1 line-clamp-2 text-xs text-amber-300/75">
-            {holding.firstAppearanceOf}
-          </p>
-        )}
-        <p class="mt-2 text-xs text-zinc-600">
-          Grade {formatGrade(holding.gradeTenths)} ·{' '}
-          {holding.boxId ? `Box ${holding.boxId}` : 'Unboxed'}
-        </p>
-      </div>
-    </a>
-  ))}
+      </a>
+    );
+  })}
 </div>

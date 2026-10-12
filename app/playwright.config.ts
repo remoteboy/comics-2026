@@ -42,6 +42,10 @@ export default defineConfig({
     env: {
       ...inheritedEnv,
       COMICS_DB_PATH: testDatabase,
+      ZAP_SUPABASE_PUBLISHABLE_KEY: '',
+      ZAP_ACCESS_TOKEN: '',
+      ZAP_REFRESH_TOKEN: '',
+      ZAP_SESSION_PATH: resolve('.test/zap-session.json'),
     },
   },
 });

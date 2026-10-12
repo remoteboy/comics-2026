@@ -77,12 +77,13 @@ INSERT INTO price_snapshots (
   grade_tenths,
   price_cents,
   observed_at,
-  source_event_id
+  source_event_id,
+  variant_id
 ) VALUES
-  (1, 'zap', 94, 500, '2021-01-01 10:00:00', 1),
-  (1, 'zap', 94, 1000, '2022-01-01 10:00:00', 2),
-  (4, 'zap', 94, 1000, '2021-06-01 10:00:00', 3),
-  (4, 'zap', 94, 2500, '2022-06-01 10:00:00', 4);
+  (1, 'zap', 94, 500, '2021-01-01 10:00:00', 1, 1),
+  (1, 'zap', 94, 1000, '2022-01-01 10:00:00', 2, 1),
+  (4, 'zap', 94, 1000, '2021-06-01 10:00:00', 3, 4),
+  (4, 'zap', 94, 2500, '2022-06-01 10:00:00', 4, 4);
 
 INSERT INTO current_valuations (
   holding_id,

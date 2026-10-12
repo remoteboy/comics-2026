@@ -2,7 +2,8 @@
 import CoverImage from '@/components/CoverImage.astro';
 import type { HoldingListItemWithSeries } from '@/features/boxes/types';
 import { groupBy } from '@/lib/collections';
-import { formatGrade, formatMoney } from '@/lib/format';
+import { formatGrade } from '@/lib/format';
+import { groupCopies, groupUnitValue } from '@/features/collection/copy-groups';
 
 interface Props {
   holdings: HoldingListItemWithSeries[];
@@ -22,35 +23,43 @@ const groups = groupBy(holdings, (holding) => holding.seriesName);
         </span>
       </div>
       <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-        {items.map((holding) => (
-          <a
-            href={`/comics/${holding.variantId}`}
-            class="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700"
-          >
-            <CoverImage
-              imageKey={holding.imageKey}
-              alt={`${holding.seriesName} #${holding.issueNumber}`}
-              class="w-full"
-            />
-            <div class="p-3">
-              <div class="flex items-start justify-between gap-2">
-                <p class="truncate text-sm font-semibold text-zinc-100">
-                  #{holding.issueNumber}
+        {groupCopies(items).map((group) => {
+          const holding = group.item;
+          return (
+            <a
+              href={`/comics/${holding.variantId}?copy=${holding.holdingId}`}
+              class="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700"
+            >
+              <CoverImage
+                imageKey={holding.imageKey}
+                alt={`${holding.seriesName} #${holding.issueNumber}`}
+                class="w-full"
+              />
+              <div class="p-3">
+                <div class="flex items-start justify-between gap-2">
+                  <p class="truncate text-sm font-semibold text-zinc-100">
+                    #{holding.issueNumber}
+                  </p>
+                  <span class="shrink-0 text-xs font-medium text-zinc-300">
+                    {groupUnitValue(group)}
+                  </span>
+                </div>
+                {group.unknownQuantity > 0 && (
+                  <p class="mt-1 text-xs text-amber-300">
+                    {group.unknownQuantity} awaiting value
+                  </p>
+                )}
+                <p class="mt-1 truncate text-xs text-zinc-500">
+                  {holding.variantName || 'Regular cover'}
                 </p>
-                <span class="shrink-0 text-xs font-medium text-zinc-300">
-                  {formatMoney(holding.valueCents)}
-                </span>
+                <p class="mt-2 text-xs text-zinc-600">
+                  Grade {formatGrade(holding.gradeTenths)}
+                  {group.quantity > 1 ? ` · ×${group.quantity}` : ''}
+                </p>
               </div>
-              <p class="mt-1 truncate text-xs text-zinc-500">
-                {holding.variantName || 'Regular cover'}
-              </p>
-              <p class="mt-2 text-xs text-zinc-600">
-                Grade {formatGrade(holding.gradeTenths)}
-                {holding.quantity > 1 ? ` · ×${holding.quantity}` : ''}
-              </p>
-            </div>
-          </a>
-        ))}
+            </a>
+          );
+        })}
       </div>
     </section>
   ))}

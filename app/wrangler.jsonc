@@ -16,7 +16,7 @@
       "binding": "COMICS_DB",
       "database_name": "comics-collection",
       "database_id": "01cb8cb1-553b-4269-98c5-db8bf4a8ba64",
-      "migrations_dir": "../../../d1/migrations",
+      "migrations_dir": "../d1/migrations",
     },
   ],
 

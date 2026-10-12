@@ -17,14 +17,17 @@ const { history } = Astro.props;
 <div class="rounded-xl border border-zinc-800 p-5">
   <h2 class="font-semibold text-white">Price history</h2>
   <p class="mt-1 text-xs leading-5 text-zinc-600">
-    Recovered legacy changes and live Zap changes. Unchanged provider
+    Legacy prices, provider updates and manual estimates. Unchanged provider
     observations are intentionally not duplicated as snapshots.
   </p>
   <div class="mt-4 space-y-1">
     {history.length ? (
       history.map((snapshot, index) => {
         const older = history[index + 1];
-        const delta = older ? snapshot.priceCents - older.priceCents : null;
+        const delta =
+          older && older.valuationEpoch === snapshot.valuationEpoch
+            ? snapshot.priceCents - older.priceCents
+            : null;
 
         return (
           <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-zinc-900 py-2.5 text-sm last:border-0">
@@ -34,6 +37,8 @@ const { history } = Astro.props;
               </p>
               <p class="mt-0.5 text-xs text-zinc-600">
                 {snapshot.provider} · grade {formatGrade(snapshot.gradeTenths)}
+                {snapshot.variantId != null &&
+                  ` · ${snapshot.coverName || 'Regular cover'}`}
               </p>
             </div>
             <div class="text-right">
@@ -56,7 +61,7 @@ const { history } = Astro.props;
       })
     ) : (
       <p class="text-sm text-zinc-500">
-        No recorded price changes for this holding.
+        No recorded price changes for this copy.
       </p>
     )}
   </div>

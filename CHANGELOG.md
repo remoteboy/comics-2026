@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The project follows Semantic Versioning while the replacement application is developed.
 
+## [Unreleased]
+
+### Added
+
+- Immediate Zap pricing and preview while adding owned copies or correcting grade/cover, with same-cover/grade copies refreshed together.
+- Explicit lookup-failure recovery and an intentional manual/unvalued fallback rather than silently adding copies with no value.
+
+- Collection copy editing for grade, box, quantity, purchase price and manual unit value.
+- Adding another copy from a stored cover, and separating one physical copy from an identical-copy group.
+- Visual selection between stored covers of the same issue, with independent ownership and valuation history.
+- Per-copy history selection, repeat-save protection and stale-edit conflict handling.
+- Collection edit audit records and price-history comparison periods for condition, cover and manual-value corrections.
+- Copy-edit unit/integration regression tests and browser form coverage.
+
+### Fixed
+
+- Matching cover, grade and box copies now display as one group after grade corrections or new purchases, with independent purchase details and history retained.
+
+- Provider results captured before an ownership correction can no longer overwrite the corrected copy.
+- Changed grades and covers can rejoin the valuation queue after an earlier provider check.
+- Condition and cover corrections are excluded from incompatible dashboard and sale price comparisons.
+
 ## [0.8.0] - 2026-10-11
 
 ### Added

@@ -1,4 +1,7 @@
 export interface PriceSnapshot {
+  coverName: string | null;
+  valuationEpoch: number;
+  variantId: number | null;
   id: number;
   provider: string;
   gradeTenths: number | null;
@@ -19,6 +22,7 @@ export interface CurrentValuation {
 }
 
 export interface ZapValuationTarget {
+  editVersion: number;
   holdingId: number;
   variantId: number;
   zapVariantId: string;
@@ -27,6 +31,7 @@ export interface ZapValuationTarget {
 }
 
 export interface ValuationWrite {
+  expectedEditVersion?: number;
   holdingId: number;
   providerVariantId: string;
   gradeTenths: number;
@@ -35,7 +40,7 @@ export interface ValuationWrite {
   conditionPercentage: number;
   observedAt: string;
   refreshedAt: string;
-  syncRunId: number;
+  syncRunId: number | null;
 }
 
 export interface ValuationHealthSummary {

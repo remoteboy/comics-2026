@@ -118,6 +118,7 @@ async function applyRawPrice(
     const result = await recordLiveValuation(
       {
         holdingId: target.holdingId,
+        expectedEditVersion: target.editVersion,
         providerVariantId: target.zapVariantId,
         gradeTenths: valuation.gradeTenths,
         priceCents: valuation.priceCents,
@@ -130,6 +131,10 @@ async function applyRawPrice(
       db,
     );
 
+    if (result === 'skipped') {
+      stats.skippedHoldings += 1;
+      continue;
+    }
     stats.refreshedHoldings += 1;
     if (result === 'changed') stats.changedHoldings += 1;
     else stats.unchangedHoldings += 1;

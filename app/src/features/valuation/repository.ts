@@ -1,10 +1,7 @@
 import { database } from '@/db';
-import type {
-  MutationDatabase,
-  MutationStatement,
-  QueryDatabase,
-} from '@/db/database';
+import type { MutationDatabase, QueryDatabase } from '@/db/database';
 
+import { liveValuationStatements } from './write';
 import { hasMaterialPriceChange } from './calculate';
 import type {
   CurrentValuation,
@@ -24,14 +21,18 @@ export async function listPriceHistory(
   return db.all<PriceSnapshot>(
     `
       SELECT
-        id,
-        provider,
-        grade_tenths AS gradeTenths,
-        price_cents AS priceCents,
-        observed_at AS observedAt
-      FROM price_snapshots
-      WHERE holding_id = ?
-      ORDER BY observed_at DESC, id DESC
+        ps.id,
+        ps.provider,
+        ps.grade_tenths AS gradeTenths,
+        ps.price_cents AS priceCents,
+        ps.observed_at AS observedAt,
+        ps.valuation_epoch AS valuationEpoch,
+        ps.variant_id AS variantId,
+        v.name AS coverName
+      FROM price_snapshots ps
+      LEFT JOIN variants v ON v.id = ps.variant_id
+      WHERE ps.holding_id = ?
+      ORDER BY ps.observed_at DESC, ps.id DESC
     `,
     [holdingId],
   );
@@ -69,7 +70,8 @@ export async function listZapValuationTargets(
       h.variant_id AS variantId,
       zap.external_id AS zapVariantId,
       h.grade_tenths AS gradeTenths,
-      h.current_value_cents AS currentValueCents
+      h.current_value_cents AS currentValueCents,
+      h.edit_version AS editVersion
     FROM holdings h
     JOIN external_refs zap
       ON zap.entity_type = 'variant'
@@ -101,7 +103,7 @@ export async function listZapValuationBackfillTargets(
           ON checks.provider = 'zap'
          AND checks.provider_variant_id = zap.external_id
         WHERE (cv.holding_id IS NULL OR cv.provider != 'zap')
-          AND (checks.status IS NULL OR checks.status = 'error')
+          AND (checks.status IS NULL OR checks.status = 'error' OR (cv.provider = 'pending' AND julianday(cv.refreshed_at) > julianday(checks.checked_at)))
         GROUP BY zap.external_id
         ORDER BY retry_rank, missing_rank, first_holding_id
         LIMIT ?
@@ -111,7 +113,8 @@ export async function listZapValuationBackfillTargets(
         h.variant_id AS variantId,
         zap.external_id AS zapVariantId,
         h.grade_tenths AS gradeTenths,
-        h.current_value_cents AS currentValueCents
+        h.current_value_cents AS currentValueCents,
+      h.edit_version AS editVersion
       FROM pending_variants pending
       JOIN external_refs zap
         ON zap.entity_type = 'variant'
@@ -132,7 +135,8 @@ export async function getValuationBackfillProgress(
       SELECT
         h.id AS holding_id,
         zap.external_id AS zap_variant_id,
-        cv.provider AS valuation_provider
+        cv.provider AS valuation_provider,
+        cv.refreshed_at AS valuation_refreshed_at
       FROM holdings h
       JOIN external_refs zap
         ON zap.entity_type = 'variant'
@@ -148,7 +152,8 @@ export async function getValuationBackfillProgress(
             WHEN valuation_provider IS NULL OR valuation_provider != 'zap' THEN 1
             ELSE 0
           END
-        ) AS has_legacy
+        ) AS has_legacy,
+        MAX(CASE WHEN valuation_provider = 'pending' THEN valuation_refreshed_at END) AS pending_refreshed_at
       FROM zap_holdings
       GROUP BY zap_variant_id
     )
@@ -159,7 +164,7 @@ export async function getValuationBackfillProgress(
         AS checkedVariants,
       COALESCE(SUM(CASE
         WHEN state.has_legacy = 1
-         AND (checks.status IS NULL OR checks.status = 'error')
+         AND (checks.status IS NULL OR checks.status = 'error' OR julianday(state.pending_refreshed_at) > julianday(checks.checked_at))
         THEN 1 ELSE 0 END), 0) AS pendingVariants,
       COALESCE(SUM(CASE
         WHEN state.has_legacy = 1 AND checks.status = 'no_price'
@@ -259,6 +264,8 @@ export async function listValuationMovements(
           SELECT ps.price_cents
           FROM price_snapshots ps
           WHERE ps.holding_id = h.id
+            AND ps.valuation_epoch = h.valuation_epoch
+            AND ps.provider IN ('zap', 'legacy')
             AND ps.observed_at <= datetime('now', '-30 days')
           ORDER BY ps.observed_at DESC, ps.id DESC
           LIMIT 1
@@ -267,6 +274,8 @@ export async function listValuationMovements(
           SELECT ps.price_cents
           FROM price_snapshots ps
           WHERE ps.holding_id = h.id
+            AND ps.valuation_epoch = h.valuation_epoch
+            AND ps.provider IN ('zap', 'legacy')
             AND ps.observed_at <= datetime('now', '-90 days')
           ORDER BY ps.observed_at DESC, ps.id DESC
           LIMIT 1
@@ -275,6 +284,8 @@ export async function listValuationMovements(
           SELECT ps.price_cents
           FROM price_snapshots ps
           WHERE ps.holding_id = h.id
+            AND ps.valuation_epoch = h.valuation_epoch
+            AND ps.provider IN ('zap', 'legacy')
           ORDER BY ps.observed_at, ps.id
           LIMIT 1
         ) AS firstPriceCents,
@@ -291,6 +302,8 @@ export async function listValuationMovements(
             SELECT ps.price_cents
             FROM price_snapshots ps
             WHERE ps.holding_id = h.id
+            AND ps.valuation_epoch = h.valuation_epoch
+            AND ps.provider IN ('zap', 'legacy')
               AND ps.observed_at <= datetime('now', '-30 days')
             ORDER BY ps.observed_at DESC, ps.id DESC
             LIMIT 1
@@ -366,84 +379,26 @@ export async function finishValuationSyncRun(
 export async function recordLiveValuation(
   value: ValuationWrite,
   db: MutationDatabase = database(),
-): Promise<'changed' | 'unchanged'> {
-  const current = await db.get<{ currentValueCents: number | null }>(
-    `SELECT current_value_cents AS currentValueCents FROM holdings WHERE id = ?`,
+): Promise<'changed' | 'unchanged' | 'skipped'> {
+  const current = await db.get<{
+    currentValueCents: number | null;
+    editVersion: number;
+  }>(
+    `SELECT current_value_cents AS currentValueCents, edit_version AS editVersion
+     FROM holdings WHERE id = ?`,
     [value.holdingId],
   );
-
-  if (!current) throw new Error(`Holding ${value.holdingId} no longer exists.`);
-
+  if (!current) return 'skipped';
+  const version = value.expectedEditVersion ?? current.editVersion;
   const changed = hasMaterialPriceChange(
     current.currentValueCents,
     value.priceCents,
   );
-  const statements: MutationStatement[] = [];
-
-  if (changed) {
-    statements.push({
-      sql: `
-        INSERT INTO price_snapshots(
-          holding_id, provider, grade_tenths, price_cents, observed_at
-        ) VALUES (?, 'zap', ?, ?, ?)
-      `,
-      parameters: [
-        value.holdingId,
-        value.gradeTenths,
-        value.priceCents,
-        value.observedAt,
-      ],
-    });
-  }
-
-  statements.push(
-    {
-      sql: `
-        UPDATE holdings
-        SET current_value_cents = ?, updated_at = ?
-        WHERE id = ?
-      `,
-      parameters: [value.priceCents, value.refreshedAt, value.holdingId],
-    },
-    {
-      sql: `
-        INSERT INTO current_valuations(
-          holding_id,
-          provider,
-          provider_variant_id,
-          grade_tenths,
-          price_cents,
-          source_price_cents,
-          condition_percentage,
-          observed_at,
-          refreshed_at,
-          sync_run_id
-        ) VALUES (?, 'zap', ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(holding_id) DO UPDATE SET
-          provider = excluded.provider,
-          provider_variant_id = excluded.provider_variant_id,
-          grade_tenths = excluded.grade_tenths,
-          price_cents = excluded.price_cents,
-          source_price_cents = excluded.source_price_cents,
-          condition_percentage = excluded.condition_percentage,
-          observed_at = excluded.observed_at,
-          refreshed_at = excluded.refreshed_at,
-          sync_run_id = excluded.sync_run_id
-      `,
-      parameters: [
-        value.holdingId,
-        value.providerVariantId,
-        value.gradeTenths,
-        value.priceCents,
-        value.sourcePriceCents,
-        value.conditionPercentage,
-        value.observedAt,
-        value.refreshedAt,
-        value.syncRunId,
-      ],
-    },
-  );
-
-  await db.batch(statements);
-  return changed ? 'changed' : 'unchanged';
+  const statements = liveValuationStatements(value, version, changed);
+  const [result] = await db.batch(statements);
+  return result?.changes === 1
+    ? changed
+      ? 'changed'
+      : 'unchanged'
+    : 'skipped';
 }

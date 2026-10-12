@@ -1,0 +1,540 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import CoverImage from '@/components/CoverImage.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { listBoxes } from '@/features/boxes/repository';
+import {
+  CopyEditConflict,
+  getEditableCopy,
+  listIssueCovers,
+  saveCopyEdit,
+} from '@/features/collection/copy-edit';
+import {
+  copyEditFromForm,
+  isSameOriginForm,
+} from '@/features/collection/copy-form';
+import { CopyValuationUnavailable } from '@/features/collection/copy-valuation';
+import { suggestedPurchaseDate } from '@/features/collection/purchase-details';
+import { formatMoney } from '@/lib/format';
+
+const id = Number(Astro.params.id);
+const copy =
+  Number.isSafeInteger(id) && id > 0 ? await getEditableCopy(id) : undefined;
+if (!copy) return Astro.redirect('/collection');
+const adding = Astro.url.searchParams.get('action') === 'add';
+const [covers, boxes] = await Promise.all([
+  listIssueCovers(copy.issueId),
+  listBoxes(),
+]);
+let error: string | null = null;
+let submitted: FormData | undefined;
+let conflict = false;
+if (Astro.request.method === 'POST') {
+  if (!isSameOriginForm(Astro.request, Astro.url)) {
+    Astro.response.status = 403;
+    error =
+      'This save must come from the collection form. Reload and try again.';
+  } else {
+    submitted = await Astro.request.formData();
+    try {
+      const savedId = await saveCopyEdit(copyEditFromForm(submitted, id));
+      const saved = await getEditableCopy(savedId);
+      if (!saved) throw new Error('Unable to load the saved copy.');
+      return Astro.redirect(
+        `/comics/${saved.variantId}?copy=${savedId}&saved=1`,
+        303,
+      );
+    } catch (cause) {
+      conflict = cause instanceof CopyEditConflict;
+      Astro.response.status = conflict
+        ? 409
+        : cause instanceof CopyValuationUnavailable
+          ? 503
+          : 400;
+      error =
+        cause instanceof Error ? cause.message : 'Unable to save this copy.';
+    }
+  }
+}
+function entered(name: string, fallback: string): string {
+  const value = submitted?.get(name);
+  return typeof value === 'string' ? value : fallback;
+}
+const requestId = entered('requestId', crypto.randomUUID());
+const scope = entered(
+  'scope',
+  adding ? 'add' : copy.quantity > 1 ? 'one' : 'all',
+);
+const existingPurchaseDate = suggestedPurchaseDate(copy);
+const today = new Date().toISOString().slice(0, 10);
+const selectedCover = entered('variantId', String(copy.variantId));
+const title = `${copy.seriesName} ${copy.issueType === 'annual' ? 'Annual ' : '#'}${copy.issueNumber}`;
+const inputClass =
+  'mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-white';
+---
+
+<AppLayout title={`${adding ? 'Add another copy' : 'Edit copy'} · ${title}`}>
+  <Breadcrumbs
+    items={[
+      { href: '/collection', label: 'Collection' },
+      { href: `/comics/${copy.variantId}?copy=${copy.id}`, label: title },
+      { label: adding ? 'Add another copy' : 'Edit copy' },
+    ]}
+  />
+  <PageHeader
+    title={adding ? 'Add another copy' : 'Edit your copy'}
+    description={title}
+  />
+  {error && (
+    <div
+      role="alert"
+      class="mb-5 rounded-lg border border-rose-900 bg-rose-950/30 p-4 text-rose-200"
+    >
+      <p>{error}</p>
+      {conflict && (
+        <a href={Astro.url.pathname} class="mt-2 inline-block underline">
+          Reload latest details
+        </a>
+      )}
+    </div>
+  )}
+  <form
+    method="post"
+    class="max-w-4xl space-y-6"
+    id="copy-form"
+    data-valuation-url={`/api/copies/${id}/valuation`}
+    data-conflict={conflict ? '1' : '0'}
+  >
+    <input type="hidden" name="requestId" value={requestId} />
+    <input
+      type="hidden"
+      name="expectedVersion"
+      value={entered('expectedVersion', String(copy.editVersion))}
+    />
+    <section class="rounded-xl border border-zinc-800 p-5">
+      <h2 class="font-semibold text-white">Your copies</h2>
+      <label class="mt-4 block text-sm text-zinc-300">
+        <span id="copy-scope-label">What would you like to do?</span>
+        <select
+          name="scope"
+          aria-labelledby="copy-scope-label"
+          aria-describedby="scope-help"
+          class={inputClass}
+          id="copy-scope"
+        >
+          {copy.quantity > 1 && (
+            <option value="one" selected={scope === 'one'}>
+              Change just one of my {copy.quantity} copies
+            </option>
+          )}
+          <option value="all" selected={scope === 'all'}>
+            Edit{' '}
+            {copy.quantity > 1
+              ? `this group of ${copy.quantity} copies`
+              : 'this copy'}
+          </option>
+          <option value="add" selected={scope === 'add'}>
+            Add another copy to my collection
+          </option>
+        </select>
+      </label>
+      <p class="mt-3 text-sm text-zinc-500" id="scope-help">
+        Changing one copy creates a separate row for it; the remaining copies
+        keep their details. Adding another copy increases your collection
+        quantity.
+      </p>
+    </section>
+    <fieldset class="rounded-xl border border-zinc-800 p-5">
+      <legend class="px-2 font-semibold text-white">Cover</legend>
+      <p class="mb-4 text-sm text-zinc-500">
+        Choose from covers already stored for this issue. Provider cover
+        discovery will be added in the intake workflow.
+      </p>
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+        {covers.map((cover) => (
+          <label class="cursor-pointer rounded-lg border border-zinc-700 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-950/20">
+            <CoverImage
+              imageKey={cover.imageKey}
+              alt={cover.name || 'Regular cover'}
+              class="mb-3 w-full rounded"
+            />
+            <span class="flex items-start gap-2 text-sm text-zinc-300">
+              <input
+                type="radio"
+                name="variantId"
+                value={String(cover.id)}
+                checked={selectedCover === String(cover.id)}
+                required
+              />
+              {cover.name || 'Regular cover'}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+    <section class="rounded-xl border border-zinc-800 p-5">
+      <h2 class="font-semibold text-white">Condition & storage</h2>
+      <div class="mt-4 grid gap-4 sm:grid-cols-3">
+        <label class="text-sm text-zinc-300">
+          <span id="copy-grade-label">Grade</span>
+          <input
+            name="grade"
+            aria-labelledby="copy-grade-label"
+            aria-describedby="copy-grade-help"
+            type="number"
+            min="0.1"
+            max="10"
+            step="0.1"
+            value={entered(
+              'grade',
+              copy.gradeTenths == null
+                ? ''
+                : (copy.gradeTenths / 10).toFixed(1),
+            )}
+            placeholder="Unknown"
+            class={inputClass}
+          />
+          <span id="copy-grade-help" class="mt-1 block text-xs text-zinc-500">
+            Leave blank if unknown.
+          </span>
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="copy-box-label">Box</span>
+          <select
+            name="boxId"
+            aria-labelledby="copy-box-label"
+            class={inputClass}
+          >
+            <option
+              value=""
+              selected={entered('boxId', String(copy.boxId ?? '')) === ''}
+            >
+              Unboxed
+            </option>
+            {boxes.map((box) => (
+              <option
+                value={String(box.id)}
+                selected={
+                  entered('boxId', String(copy.boxId ?? '')) === String(box.id)
+                }
+              >
+                Box {box.id}
+                {box.label ? ` · ${box.label}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="copy-quantity-label">Quantity</span>
+          <input
+            name="quantity"
+            aria-labelledby="copy-quantity-label"
+            aria-describedby="copy-quantity-help"
+            id="copy-quantity"
+            data-original-quantity={String(copy.quantity)}
+            type="number"
+            min="1"
+            step="1"
+            required
+            value={entered(
+              'quantity',
+              scope === 'one' || scope === 'add' ? '1' : String(copy.quantity),
+            )}
+            class={inputClass}
+          />
+          <span
+            id="copy-quantity-help"
+            class="mt-1 block text-xs text-zinc-500"
+          >
+            Copies sharing these details.
+          </span>
+        </label>
+      </div>
+    </section>
+    <section class="rounded-xl border border-zinc-800 p-5">
+      <h2 class="font-semibold text-white">Value per copy</h2>
+      <p class="mt-2 text-sm text-zinc-400">
+        Current value: {formatMoney(copy.valueCents)}. New copies and grade or
+        cover changes get a fresh Zap value. Matching copies at the same grade
+        are updated too. Purchase price remains separate.
+      </p>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="text-sm text-zinc-300">
+          <span id="copy-value-label">Current value</span>
+          <select
+            name="valueMode"
+            aria-labelledby="copy-value-label"
+            id="copy-value-mode"
+            class={inputClass}
+          >
+            <option
+              value="keep"
+              selected={
+                entered('valueMode', adding ? 'zap' : 'keep') === 'keep'
+              }
+            >
+              Keep value; refresh from Zap if grade or cover changes
+            </option>
+            <option
+              value="zap"
+              selected={entered('valueMode', adding ? 'zap' : 'keep') === 'zap'}
+            >
+              Get current value from Zap
+            </option>
+            <option
+              value="unknown"
+              selected={
+                entered('valueMode', adding ? 'zap' : 'keep') === 'unknown'
+              }
+            >
+              Save without a value (choose explicitly)
+            </option>
+            <option
+              value="manual"
+              selected={
+                entered('valueMode', adding ? 'zap' : 'keep') === 'manual'
+              }
+            >
+              Enter a manual value
+            </option>
+          </select>
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="copy-manual-label">Manual current value (USD)</span>
+          <input
+            name="manualValue"
+            aria-labelledby="copy-manual-label"
+            aria-describedby="copy-manual-help"
+            id="copy-manual-value"
+            type="number"
+            min="0"
+            step="0.01"
+            value={entered('manualValue', '')}
+            class={inputClass}
+          />
+          <span id="copy-manual-help" class="mt-1 block text-xs text-zinc-500">
+            Zero is a known value. Leave unknown prices unset. A future provider
+            refresh replaces a manual estimate.
+          </span>
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="copy-purchase-label">Purchase price per copy (USD)</span>
+          <input
+            name="purchasePrice"
+            data-existing-purchase={
+              copy.purchasePriceCents == null
+                ? ''
+                : (copy.purchasePriceCents / 100).toFixed(2)
+            }
+            aria-labelledby="copy-purchase-label"
+            aria-describedby="copy-purchase-help"
+            type="number"
+            min="0"
+            step="0.01"
+            value={entered(
+              'purchasePrice',
+              scope === 'add' || copy.purchasePriceCents == null
+                ? ''
+                : (copy.purchasePriceCents / 100).toFixed(2),
+            )}
+            class={inputClass}
+          />
+          <span
+            id="copy-purchase-help"
+            class="mt-1 block text-xs text-zinc-500"
+          >
+            Optional; this is never changed by valuation refreshes.
+          </span>
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="copy-purchase-date-label">Purchase date</span>
+          <input
+            name="purchaseDate"
+            type="date"
+            data-existing-purchase={existingPurchaseDate}
+            data-suggest-today={
+              scope === 'add' && !submitted ? 'true' : undefined
+            }
+            aria-labelledby="copy-purchase-date-label"
+            aria-describedby="copy-purchase-date-help"
+            value={entered(
+              'purchaseDate',
+              scope === 'add' ? today : existingPurchaseDate,
+            )}
+            class={inputClass}
+          />
+          <span
+            id="copy-purchase-date-help"
+            class="mt-1 block text-xs text-zinc-500"
+          >
+            Optional; defaults to the date entered for existing copies, or today
+            for new purchases. Change or clear it as needed.
+          </span>
+        </label>
+      </div>
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          id="check-copy-value"
+          class="rounded-lg border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-200"
+        >
+          Check Zap value
+        </button>
+        <p
+          id="copy-value-preview"
+          role="status"
+          aria-live="polite"
+          class="text-sm text-zinc-400"
+        >
+          The value is checked again when you save.
+        </p>
+      </div>
+      <p class="mt-4 text-sm text-zinc-500">
+        Existing price history is retained. Grade, cover and manual-value
+        corrections start a new comparison period so they do not appear as
+        market gains.
+      </p>
+    </section>
+    <div class="flex gap-3">
+      <button
+        type="submit"
+        disabled={conflict}
+        class="rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-zinc-950 disabled:opacity-50"
+      >
+        Save to collection
+      </button>
+      <a
+        href={`/comics/${copy.variantId}?copy=${copy.id}`}
+        class="rounded-lg border border-zinc-700 px-5 py-3 text-zinc-300"
+      >
+        Cancel
+      </a>
+    </div>
+  </form>
+</AppLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#copy-form');
+  const scope = document.querySelector<HTMLSelectElement>('#copy-scope');
+  const quantity = document.querySelector<HTMLInputElement>('#copy-quantity');
+  const mode = document.querySelector<HTMLSelectElement>('#copy-value-mode');
+  const manual = document.querySelector<HTMLInputElement>('#copy-manual-value');
+  const purchaseFields = Array.from(
+    document.querySelectorAll<HTMLInputElement>(
+      'input[name="purchasePrice"], input[name="purchaseDate"]',
+    ),
+  );
+  const now = new Date();
+  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  for (const input of purchaseFields) {
+    if (input.dataset.suggestToday === 'true') input.value = localToday;
+  }
+  let purchaseScope = scope?.value === 'add' ? 'add' : 'edit';
+  const purchaseDrafts: Record<string, string[]> = {
+    edit: purchaseFields.map((input) => input.dataset.existingPurchase ?? ''),
+    add: purchaseFields.map((input) =>
+      input.name === 'purchaseDate' ? localToday : '',
+    ),
+    [purchaseScope]: purchaseFields.map((input) => input.value),
+  };
+  function updateFields() {
+    if (!scope || !quantity || !mode || !manual) return;
+    quantity.readOnly = scope.value === 'one';
+    if (quantity.readOnly) quantity.value = '1';
+    const keep = mode.querySelector<HTMLOptionElement>('option[value="keep"]');
+    if (keep) keep.disabled = scope.value === 'add';
+    if (scope.value === 'add' && mode.value === 'keep') mode.value = 'zap';
+    manual.disabled = mode.value !== 'manual';
+    manual.required = mode.value === 'manual';
+  }
+  scope?.addEventListener('change', () => {
+    const nextScope = scope.value === 'add' ? 'add' : 'edit';
+    if (nextScope !== purchaseScope) {
+      purchaseDrafts[purchaseScope] = purchaseFields.map(
+        (input) => input.value,
+      );
+      purchaseFields.forEach((input, index) => {
+        input.value = purchaseDrafts[nextScope]?.[index] ?? '';
+      });
+      purchaseScope = nextScope;
+    }
+    if (quantity)
+      quantity.value =
+        scope.value === 'all'
+          ? (quantity.dataset.originalQuantity ?? '1')
+          : '1';
+    updateFields();
+  });
+  mode?.addEventListener('change', updateFields);
+  form?.addEventListener('submit', () => {
+    const button = form.querySelector<HTMLButtonElement>(
+      'button[type="submit"]',
+    );
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Saving…';
+    }
+  });
+  window.addEventListener('pageshow', () => {
+    const button = form?.querySelector<HTMLButtonElement>(
+      'button[type="submit"]',
+    );
+    if (button && form?.dataset.conflict !== '1') {
+      // Browser history may restore a form whose previous submit disabled it.
+      button.disabled = false;
+      button.textContent = 'Save to collection';
+    }
+  });
+  const preview = document.querySelector<HTMLParagraphElement>(
+    '#copy-value-preview',
+  );
+  const check = document.querySelector<HTMLButtonElement>('#check-copy-value');
+  let previewVersion = 0;
+  form?.addEventListener('input', () => {
+    previewVersion += 1;
+    if (preview)
+      preview.textContent = 'The value is checked again when you save.';
+  });
+  check?.addEventListener('click', async () => {
+    if (!form || !preview || !form.dataset.valuationUrl) return;
+    const version = ++previewVersion;
+    check.disabled = true;
+    preview.textContent = 'Checking Zap…';
+    const data = new FormData(form);
+    const parameters = new URLSearchParams({
+      variantId: String(data.get('variantId') ?? ''),
+      grade: String(data.get('grade') ?? ''),
+    });
+    try {
+      const response = await fetch(form.dataset.valuationUrl, {
+        method: 'POST',
+        body: parameters,
+      });
+      const result = (await response.json()) as {
+        priceCents?: number;
+        gradeTenths?: number;
+        error?: string;
+      };
+      if (version !== previewVersion) return;
+      if (
+        !response.ok ||
+        result.priceCents === undefined ||
+        result.gradeTenths === undefined
+      )
+        throw new Error(result.error || 'Unable to check the value.');
+      const value = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(result.priceCents / 100);
+      preview.textContent = `${value} per copy at grade ${(result.gradeTenths / 10).toFixed(1)}. Updated again when you save.`;
+    } catch (error) {
+      if (version === previewVersion)
+        preview.textContent =
+          error instanceof Error ? error.message : 'Unable to check the value.';
+    } finally {
+      check.disabled = false;
+    }
+  });
+  updateFields();
+</script>

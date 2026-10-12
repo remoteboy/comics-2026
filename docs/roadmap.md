@@ -180,18 +180,20 @@
 
 ## Phase 8 — Sale intelligence
 
-- [ ] Define configurable sale-watch thresholds
-- [ ] Add sale-candidate / watchlist screen
-- [ ] Flag large percentage movements
-- [ ] Flag large absolute-value movements
-- [ ] Show current value vs historical values
-- [ ] Add manual watch/unwatch state
-- [ ] Add notes
+Checked items below have implementations in the supplied source; live production verification remains separate.
+
+- [x] Define configurable sale-watch thresholds
+- [x] Add sale-candidate / watchlist screen
+- [x] Flag large percentage movements
+- [x] Flag large absolute-value movements
+- [x] Show current value vs historical values
+- [x] Add manual watch/unwatch state
+- [x] Add notes
 - [ ] Investigate reliable sold-comps sources
 - [ ] Investigate eBay Marketplace Insights access
-- [ ] Add recent comparable sales where available
+- [x] Add recent comparable sales where available
 - [ ] Distinguish raw / graded / signed / lots where possible
-- [ ] Add "research on eBay" workflow
+- [x] Add "research on eBay" workflow
 - [ ] Add listing-preparation workflow if useful
 
 ## Phase 9 — Remaining-comics intake
@@ -206,7 +208,7 @@
 - [ ] Set box
 - [ ] Preserve cover price
 - [ ] Preserve external provider IDs
-- [ ] Add holding
+- [ ] Save provider-selected owned comic (copies of stored covers can now be added through collection editing)
 - [ ] Implement sticky grade / box defaults
 - [ ] Implement **Add & Next**
 - [ ] Support manual entry when provider lookup fails
@@ -225,18 +227,18 @@
 - [ ] Create R2 bucket
 - [ ] Upload matched covers
 - [ ] Preserve private access
-- [ ] Add R2 image adapter
+- [x] Add R2 image adapter
 - [ ] Confirm local and R2 image adapters behave identically
 
 ## Phase 11 — Cloudflare deployment
 
-- [ ] Add Cloudflare D1 adapter
+- [x] Add Cloudflare D1 adapter
 - [ ] Create production D1 database
 - [ ] Apply schema migrations
 - [ ] Import production collection data
 - [ ] Configure R2
 - [ ] Configure Worker deployment
-- [ ] Configure Cloudflare Access
+- [x] Configure Cloudflare Access (owner confirmed)
 - [ ] Remove need for application-level login
 - [ ] Configure runtime secrets
 - [ ] Configure scheduled valuation refresh
@@ -263,8 +265,17 @@
 
 ## Current position
 
-**Completed: Phase 7 — Valuation engine (`v0.6.0`)**
+Cloudflare Access is implemented per the owner's confirmation. The fresh source workflow audit is complete. Production access policies and production data were not revalidated by this patch.
 
-**Next: Phase 8 — Sale intelligence**
+### Current development order
 
-Current valuations are now explicit per holding, seeded from the migrated legacy baseline and progressively replaced with live ZapKapow values at the holding's actual grade. The engine records changed-price snapshots, 30-day / 90-day / longer-term movement where history permits, freshness and missing-price state, and provider-sync history. Zap's capped recent-change feed handles fast movers while bounded direct-price backfill progressively refreshes legacy/stale holdings without brute-forcing the entire collection in one run.
+1. **Collection editing — first implementation ready for local review.** Copy grade, box, quantity, purchase price and value; add another copy of a stored cover; split one physical copy; select another stored cover of the same issue; retain history; reject stale/repeated writes. Apply migration `0006_collection_editing.sql` before using this code. See [collection-editing.md](collection-editing.md).
+2. **Complete collection editing.** Inline box reassignment, shared metadata editing and safe cover upload/repair. No destructive removal operation is included in the first patch.
+3. **Restore full intake.** Title-name search, exact issue/annual lookup, all provider cover choices, grade-based preview, automatic creators/publishers, manual fallback and Add & Next. The new editor only selects already stored covers; it does not yet replace provider intake.
+4. **Global search.** Owned comics, titles, creators, publishers and boxes.
+5. **Supporting management.** Titles, boxes, publishers, creators and shared cover metadata without exposing catalogue maintenance as a prerequisite for adding ownership.
+6. **Operational completion.** Verify existing sale intelligence, schedule valuations, backups/restore, provider recovery and release checks.
+
+D1, R2 and persistent sessions have code and reported production operation. Sale thresholds, candidates, watch state, notes, eBay research links and on-demand Zap comps already have code and tests. The historical phase checklists above are not proof of a freshly verified production release.
+
+Keep the normalized schema internal. User-facing terminology is Title / Issue / Cover / Copy / Grade / Box / Value. Valuation remains per owned copy row; identical-copy groups are split internally when just one copy changes.

@@ -88,6 +88,8 @@ export async function getBox(
         h.quantity,
         h.box_id AS boxId,
         h.current_value_cents AS valueCents,
+        h.purchase_price_cents AS purchasePriceCents,
+        h.purchase_date AS purchaseDate,
         v.image_key AS imageKey,
         v.first_appearance_of AS firstAppearanceOf
       FROM holdings h
