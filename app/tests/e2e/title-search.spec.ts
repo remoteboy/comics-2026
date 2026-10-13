@@ -4,7 +4,7 @@ test('global title suggestions support keyboard navigation on every screen', asy
 }) => {
   await page.goto('/boxes');
   const input = page.getByRole('combobox', {
-    name: 'Search collection titles',
+    name: 'Search collection',
   });
   await input.fill('alpha');
   await expect(
@@ -18,7 +18,7 @@ test('global title suggestions support keyboard navigation on every screen', asy
   await input.press('Enter');
   await expect(page).toHaveURL(/\/collection\/1$/);
   await expect(
-    page.getByRole('combobox', { name: 'Search collection titles' }),
+    page.getByRole('combobox', { name: 'Search collection' }),
   ).toBeVisible();
 });
 test('collection search has no-results feedback and a working submit fallback', async ({
@@ -26,11 +26,11 @@ test('collection search has no-results feedback and a working submit fallback', 
 }) => {
   await page.goto('/');
   const input = page.getByRole('combobox', {
-    name: 'Search collection titles',
+    name: 'Search collection',
   });
   await input.fill('no-such-title');
   await expect(
-    page.getByText('No matching titles. Try another name.', { exact: true }),
+    page.getByText('No matches. Try another name.', { exact: true }),
   ).toBeVisible();
   await input.press('Escape');
   await expect(input).toHaveAttribute('aria-expanded', 'false');

@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
-import { searchCollectionTitles } from '@/features/search/repository';
+import { searchCollection } from '@/features/search/repository';
 export const GET: APIRoute = async ({ url }) => {
   const headers = { 'Cache-Control': 'no-store' };
   try {
     return Response.json(
-      { items: await searchCollectionTitles(url.searchParams.get('q') ?? '') },
+      { items: await searchCollection(url.searchParams.get('q') ?? '') },
       { headers },
     );
   } catch {

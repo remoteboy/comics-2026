@@ -1,3 +1,4 @@
+import { catalogIdentitySql } from '@/features/catalog/repository';
 import { database } from '@/db';
 import type { MutationDatabase, MutationStatement } from '@/db/database';
 import { coverStorage } from '@/covers/runtime';
@@ -459,7 +460,7 @@ export async function saveIntake(
   });
   if (metadata.publisherName)
     statements.push({
-      sql: `INSERT INTO publishers(name,created_at,updated_at) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM publishers WHERE name=? COLLATE NOCASE) AND ${variant.sql} IS NULL`,
+      sql: `INSERT INTO publishers(name,created_at,updated_at) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 WHERE (${catalogIdentitySql('publisher')}) IS NOT NULL) AND ${variant.sql} IS NULL`,
       parameters: [
         metadata.publisherName,
         now,
@@ -469,7 +470,7 @@ export async function saveIntake(
       ],
     });
   statements.push({
-    sql: `INSERT INTO variants(issue_id,publisher_id,name,story_title,first_appearance_of,details,cover_price_cents,image_key,created_at,updated_at,creation_request_id) SELECT ${issue.sql},(SELECT id FROM publishers WHERE name=? COLLATE NOCASE ORDER BY id LIMIT 1),?,?,?,?,?,?,?,?,? WHERE ${variant.sql} IS NULL`,
+    sql: `INSERT INTO variants(issue_id,publisher_id,name,story_title,first_appearance_of,details,cover_price_cents,image_key,created_at,updated_at,creation_request_id) SELECT ${issue.sql},(${catalogIdentitySql('publisher')}),?,?,?,?,?,?,?,?,? WHERE ${variant.sql} IS NULL`,
     parameters: [
       ...issue.parameters,
       metadata.publisherName,
@@ -505,14 +506,18 @@ export async function saveIntake(
   for (const credit of credits)
     statements.push(
       {
-        sql: 'INSERT INTO creators(name,created_at,updated_at) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM creators WHERE name=? COLLATE NOCASE) AND EXISTS(SELECT 1 FROM variants WHERE creation_request_id=?)',
+        sql: `INSERT INTO creators(name,created_at,updated_at) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 WHERE (${catalogIdentitySql('creator')}) IS NOT NULL) AND EXISTS(SELECT 1 FROM variants WHERE creation_request_id=?)`,
         parameters: [credit.name, now, now, credit.name, input.requestId],
       },
       {
-        sql: 'INSERT INTO variant_credits(variant_id,creator_id,role,created_at,updated_at) SELECT v.id,(SELECT id FROM creators WHERE name=? COLLATE NOCASE ORDER BY id LIMIT 1),?,?,? FROM variants v WHERE v.creation_request_id=?',
+        sql: `INSERT INTO variant_credits(variant_id,creator_id,role,created_at,updated_at) SELECT v.id,(${catalogIdentitySql('creator')}),?,?,? FROM variants v WHERE v.creation_request_id=?`,
         parameters: [credit.name, credit.role, now, now, input.requestId],
       },
     );
+  statements.push({
+    sql: "DELETE FROM variant_credits WHERE variant_id=(SELECT id FROM variants WHERE creation_request_id=?) AND id NOT IN (SELECT MIN(vc.id) FROM variant_credits vc JOIN variants v ON v.id=vc.variant_id WHERE v.creation_request_id=? GROUP BY vc.creator_id,COALESCE(vc.role,''))",
+    parameters: [input.requestId, input.requestId],
+  });
   if (imageKey)
     statements.push({
       sql: `UPDATE variants SET image_key=?,edit_version=edit_version+1,updated_at=? WHERE id=${variant.sql} AND image_key IS NULL`,

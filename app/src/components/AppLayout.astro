@@ -15,6 +15,8 @@ const navigation = [
   { href: '/collection', label: 'Collection' },
   { href: '/intake', label: 'Add comics' },
   { href: '/boxes', label: 'Boxes' },
+  { href: '/creators', label: 'Creators' },
+  { href: '/publishers', label: 'Publishers' },
   { href: '/valuations', label: 'Valuations' },
   { href: '/sales', label: 'Sales' },
   { href: '/providers', label: 'Providers' },
@@ -90,16 +92,17 @@ const navigation = [
               <TitleAutocomplete
                 id="global-title-search"
                 endpoint="/api/search/titles"
+                scope="collection"
               >
                 <label for="global-title-search" class="sr-only">
-                  Search collection titles
+                  Search collection
                 </label>
                 <input
                   id="global-title-search"
                   name="q"
                   type="search"
                   maxlength="200"
-                  placeholder="Find a title in your collection…"
+                  placeholder="Find a title, creator or publisher…"
                   class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
                 />
               </TitleAutocomplete>

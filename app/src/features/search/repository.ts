@@ -1,3 +1,4 @@
+import { listCatalog, type CatalogKind } from '@/features/catalog/repository';
 import { database } from '@/db';
 import type { QueryDatabase } from '@/db/database';
 export async function searchCollectionTitles(
@@ -19,4 +20,46 @@ export async function searchCollectionTitles(
         : 'Collection title',
     href: `/collection/${row.id}`,
   }));
+}
+
+export async function searchCatalogRecords(
+  kind: CatalogKind,
+  query: string,
+  db: QueryDatabase = database(),
+) {
+  if (query.trim().length < 2) return [];
+  const { items } = await listCatalog(kind, query, 1, db);
+  const path = kind === 'creator' ? '/creators' : '/publishers';
+  return items.slice(0, 12).map((item) => ({
+    label: item.name,
+    detail: `${kind === 'creator' ? 'Creator' : 'Publisher'} · ${item.comicCount} covers`,
+    href: `${path}/${item.id}`,
+  }));
+}
+export async function searchCollection(
+  query: string,
+  db: QueryDatabase = database(),
+) {
+  const q = query.trim().toLocaleLowerCase();
+  if (q.length < 2) return [];
+  const [titles, creators, publishers] = await Promise.all([
+    searchCollectionTitles(query, db),
+    searchCatalogRecords('creator', query, db),
+    searchCatalogRecords('publisher', query, db),
+  ]);
+  const rank = (name: string) =>
+    name.toLocaleLowerCase() === q
+      ? 0
+      : name.toLocaleLowerCase().startsWith(q)
+        ? 1
+        : 2;
+  return [
+    ...titles.map((title) => ({ ...title, detail: 'Title · ' + title.detail })),
+    ...creators,
+    ...publishers,
+  ]
+    .sort(
+      (a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label),
+    )
+    .slice(0, 12);
 }

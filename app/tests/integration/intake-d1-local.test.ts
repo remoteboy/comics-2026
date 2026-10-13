@@ -1,3 +1,7 @@
+import {
+  changeCatalog,
+  catalogIdentitySql,
+} from '@/features/catalog/repository';
 import { readFileSync, readdirSync } from 'node:fs';
 import { it, expect } from 'vitest';
 import { createRequire } from 'node:module';
@@ -76,6 +80,9 @@ it('runs the real intake batches on local D1, including replay, reuse and quote 
     const first = await saveIntake(request, undefined, {
       db,
       zap: intakeClient(),
+      download: async () => {
+        throw new Error('Offline fixture');
+      },
     });
     expect(
       await saveIntake(request, undefined, { db, zap: intakeClient() }),
@@ -85,6 +92,9 @@ it('runs the real intake batches on local D1, including replay, reuse and quote 
       undefined,
       {
         db,
+        download: async () => {
+          throw new Error('Offline fixture');
+        },
         zap: intakeClient({
           async latestRawPrice(id) {
             return {
@@ -112,6 +122,49 @@ it('runs the real intake batches on local D1, including replay, reuse and quote 
       (await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM intake_requests'))
         ?.n,
     ).toBe(2);
+    await changeCatalog(
+      {
+        requestId: crypto.randomUUID(),
+        kind: 'publisher',
+        id: 1,
+        version: 0,
+        action: 'rename',
+        name: 'DC Canonical',
+      },
+      db,
+    );
+    expect(
+      await db.get(catalogIdentitySql('publisher'), ['DC Comics']),
+    ).toEqual({ id: 1 });
+    await db.run("INSERT INTO creators(id,name) VALUES(99,'Jane Duplicate')");
+    await db.run(
+      "INSERT INTO variant_credits(variant_id,creator_id,role) VALUES(1,99,'writer')",
+    );
+    await changeCatalog(
+      {
+        requestId: crypto.randomUUID(),
+        kind: 'creator',
+        id: 99,
+        version: 0,
+        action: 'merge',
+        targetId: 1,
+        targetVersion: 0,
+        confirmed: true,
+      },
+      db,
+    );
+    expect(
+      await db.get(
+        'SELECT COUNT(*) AS n FROM variant_credits WHERE variant_id=1 AND creator_id=1 AND role=?',
+        ['writer'],
+      ),
+    ).toEqual({ n: 1 });
+    expect(
+      await db.get(
+        'SELECT new_id AS id FROM catalog_redirects WHERE kind=? AND old_id=?',
+        ['creator', 99],
+      ),
+    ).toEqual({ id: 1 });
   } finally {
     await mf.dispose();
   }

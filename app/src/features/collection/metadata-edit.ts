@@ -1,3 +1,4 @@
+import { catalogIdentitySql } from '@/features/catalog/repository';
 import { database } from '@/db';
 import type { MutationDatabase, MutationStatement } from '@/db/database';
 import { coverStorage } from '@/covers/runtime';
@@ -171,13 +172,13 @@ export async function saveMetadata(
   ];
   if (input.publisherName)
     statements.push({
-      sql: 'INSERT INTO publishers(name, created_at, updated_at) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM publishers WHERE name = ? COLLATE NOCASE)',
+      sql: `INSERT INTO publishers(name, created_at, updated_at) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 WHERE (${catalogIdentitySql('publisher')}) IS NOT NULL)`,
       parameters: [input.publisherName, now, now, input.publisherName],
     });
   statements.push(
     {
       sql: `UPDATE variants SET name = ?, story_title = ?, first_appearance_of = ?, details = ?,
-      publisher_id = (SELECT id FROM publishers WHERE name = ? COLLATE NOCASE ORDER BY id LIMIT 1), cover_price_cents = ?, image_key = ?, edit_version = edit_version + 1, updated_at = ? WHERE id = ?`,
+      publisher_id = (${catalogIdentitySql('publisher')}), cover_price_cents = ?, image_key = ?, edit_version = edit_version + 1, updated_at = ? WHERE id = ?`,
       parameters: [
         input.variantName,
         input.storyTitle,
@@ -198,14 +199,18 @@ export async function saveMetadata(
   for (const credit of credits)
     statements.push(
       {
-        sql: 'INSERT INTO creators(name, created_at, updated_at) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM creators WHERE name = ? COLLATE NOCASE)',
+        sql: `INSERT INTO creators(name, created_at, updated_at) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 WHERE (${catalogIdentitySql('creator')}) IS NOT NULL)`,
         parameters: [credit.name, now, now, credit.name],
       },
       {
-        sql: 'INSERT INTO variant_credits(variant_id, creator_id, role, created_at, updated_at) SELECT ?, id, ?, ?, ? FROM creators WHERE id = (SELECT id FROM creators WHERE name = ? COLLATE NOCASE ORDER BY id LIMIT 1)',
+        sql: `INSERT INTO variant_credits(variant_id, creator_id, role, created_at, updated_at) SELECT ?, id, ?, ?, ? FROM creators WHERE id = (${catalogIdentitySql('creator')})`,
         parameters: [input.variantId, credit.role, now, now, credit.name],
       },
     );
+  statements.push({
+    sql: "DELETE FROM variant_credits WHERE variant_id=? AND id NOT IN (SELECT MIN(id) FROM variant_credits WHERE variant_id=? GROUP BY creator_id,COALESCE(role,''))",
+    parameters: [input.variantId, input.variantId],
+  });
   if (cover) {
     try {
       await storage.put(imageKey!, cover);

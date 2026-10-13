@@ -52,7 +52,7 @@ export function seriesWhere(options: SeriesListOptions): {
         FROM issues qi
         JOIN variants qv ON qv.issue_id = qi.id
         LEFT JOIN publishers qp ON qp.id = qv.publisher_id
-        WHERE qi.series_id = s.id AND qp.name LIKE ? COLLATE NOCASE
+        WHERE qi.series_id = s.id AND (qp.name LIKE ? COLLATE NOCASE OR EXISTS(SELECT 1 FROM publisher_aliases pa WHERE pa.publisher_id=qp.id AND pa.name LIKE ? COLLATE NOCASE))
       )
       OR EXISTS (
         SELECT 1
@@ -60,10 +60,10 @@ export function seriesWhere(options: SeriesListOptions): {
         JOIN variants qv ON qv.issue_id = qi.id
         JOIN variant_credits qvc ON qvc.variant_id = qv.id
         JOIN creators qc ON qc.id = qvc.creator_id
-        WHERE qi.series_id = s.id AND qc.name LIKE ? COLLATE NOCASE
+        WHERE qi.series_id = s.id AND (qc.name LIKE ? COLLATE NOCASE OR EXISTS(SELECT 1 FROM creator_aliases ca WHERE ca.creator_id=qc.id AND ca.name LIKE ? COLLATE NOCASE))
       )
     )`);
-    parameters.push(search, search, search, search);
+    parameters.push(search, search, search, search, search, search);
   }
 
   if (status !== 'all') {

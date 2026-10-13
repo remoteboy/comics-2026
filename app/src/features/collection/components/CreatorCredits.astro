@@ -1,5 +1,6 @@
 ---
 import type { VariantCredit } from '@/features/collection/types';
+import { database } from '@/db';
 import { groupBy } from '@/lib/collections';
 import { nonEmptyString } from '@/providers/utils';
 
@@ -10,6 +11,14 @@ interface Props {
 const credits = Astro.props.credits.filter((credit) =>
   nonEmptyString(credit.name),
 );
+const names = [...new Set(credits.map((credit) => credit.name))];
+const records = names.length
+  ? await database().all<{ id: number; name: string }>(
+      `SELECT id,name FROM creators WHERE name IN (${names.map(() => '?').join(',')})`,
+      names,
+    )
+  : [];
+const ids = new Map(records.map((record) => [record.name, record.id]));
 const grouped = groupBy(credits, (credit) => credit.role ?? 'credit');
 ---
 
@@ -23,7 +32,18 @@ const grouped = groupBy(credits, (credit) => credit.role ?? 'credit');
             {role.replaceAll('_', ' ')}
           </p>
           <p class="mt-1.5 text-sm leading-6 text-zinc-300">
-            {items.map((item) => item.name).join(' · ')}
+            {items.map((item, index) => (
+              <>
+                {index > 0 && ' · '}
+                {ids.has(item.name) ? (
+                  <a class="underline" href={`/creators/${ids.get(item.name)}`}>
+                    {item.name}
+                  </a>
+                ) : (
+                  item.name
+                )}
+              </>
+            ))}
           </p>
         </div>
       ))

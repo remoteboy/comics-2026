@@ -1,0 +1,6 @@
+---
+import Directory from '@/features/catalog/components/CatalogDirectory.astro';
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<Directory kind="creator" />

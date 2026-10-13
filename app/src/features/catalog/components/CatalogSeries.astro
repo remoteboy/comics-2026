@@ -1,0 +1,454 @@
+---
+import TitleAutocomplete from '@/components/TitleAutocomplete.astro';
+import { database } from '@/db';
+import {
+  browseFilters,
+  browseSeries,
+  browseIssues,
+  browseParams,
+  creatorRoles,
+} from '../browse';
+import { catalogConfig, type CatalogKind } from '../repository';
+import { positiveInt } from '@/lib/pagination';
+interface Props {
+  kind: CatalogKind;
+  id: number;
+}
+const { kind, id } = Astro.props;
+const base = `${catalogConfig(kind).path}/${id}`;
+const filters = browseFilters(Astro.url.searchParams, kind);
+filters.owned = false;
+if (filters.seriesId && filters.title) {
+  const selectedTitle = await database().get<{ name: string }>(
+    'SELECT name FROM series WHERE id=?',
+    [filters.seriesId],
+  );
+  if (selectedTitle?.name !== filters.title) filters.seriesId = null;
+}
+const page = positiveInt(Astro.url.searchParams.get('page'));
+const issuePage = positiveInt(Astro.url.searchParams.get('issuePage'));
+const [groups, roles] = await Promise.all([
+  browseSeries(kind, id, filters, page),
+  kind === 'creator' ? creatorRoles(id) : Promise.resolve([]),
+]);
+const selected =
+  kind === 'creator' && filters.seriesId
+    ? await browseIssues(kind, id, filters, filters.seriesId, issuePage)
+    : null;
+const pageUrl = (p: number) => {
+  const params = browseParams(filters);
+  params.set('page', String(p));
+  return base + '?' + params;
+};
+const seriesUrl = (seriesId: number, p = 1) => {
+  const params = browseParams({
+    ...filters,
+    seriesId,
+    title:
+      groups.items.find((series) => series.id === seriesId)?.name ??
+      filters.title,
+  });
+  params.set('issuePage', String(p));
+  return base + '?' + params;
+};
+const endpointParams = browseParams(filters);
+endpointParams.set('kind', kind);
+endpointParams.set('id', String(id));
+const field =
+  'w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white';
+---
+
+<section>
+  <h2 class="mb-3 font-semibold text-white">Series</h2>
+  <form
+    method="get"
+    action={base}
+    data-catalog-filters
+    class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 p-4"
+  >
+    <input
+      type="hidden"
+      name="series"
+      value={filters.seriesId ? String(filters.seriesId) : ''}
+    />
+    <div class="min-w-0 flex-1 basis-56">
+      <TitleAutocomplete
+        id="catalog-series-filter"
+        endpoint={`/api/catalog/series?${endpointParams}`}
+        scope="series"
+      >
+        <label
+          for="catalog-series-filter"
+          class="mb-1 block text-sm text-zinc-300"
+        >
+          Series title
+        </label>
+        <input
+          id="catalog-series-filter"
+          type="search"
+          name="title"
+          maxlength="200"
+          value={filters.title}
+          placeholder="Find a series…"
+          class={field}
+        />
+      </TitleAutocomplete>
+    </div>
+    {kind === 'creator' && (
+      <label class="text-sm text-zinc-300">
+        <span id="catalog-role-label">Role</span>
+        <select
+          aria-labelledby="catalog-role-label"
+          name="role"
+          class={field + ' mt-1'}
+        >
+          <option value="">All roles</option>
+          {roles.map((row) => (
+            <option
+              value={row.role || '__unspecified'}
+              selected={filters.role === (row.role || '__unspecified')}
+            >
+              {row.role ? row.role.replaceAll('_', ' ') : 'Unspecified'}
+            </option>
+          ))}
+        </select>
+      </label>
+    )}
+    <button
+      data-apply-filters
+      class="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-zinc-950"
+    >
+      Apply filters
+    </button>
+    <a
+      href={base}
+      data-clear-filters
+      class="py-2 text-sm text-zinc-400 underline"
+    >
+      Clear filters
+    </a>
+  </form>
+  <p
+    data-filter-message
+    aria-live="polite"
+    class="mb-3 text-sm text-zinc-400"
+  ></p>
+  <div data-catalog-results>
+    <p class="mb-3 text-sm text-zinc-400">
+      {groups.total} matching {groups.total === 1 ? 'series' : 'series'}
+    </p>
+    <div class="space-y-3">
+      {groups.items.map((series) =>
+        kind === 'publisher' ? (
+          <a
+            href={`/collection/${series.id}`}
+            class="block rounded-xl border border-zinc-800 p-4 hover:bg-zinc-900"
+          >
+            <p class="font-semibold text-white">{series.name}</p>
+            <p class="mt-1 text-sm text-zinc-400">
+              {series.issueCount} issues · {series.coverCount} covers ·{' '}
+              {series.copyCount} owned copies
+            </p>
+          </a>
+        ) : (
+          <details
+            data-creator-series
+            data-loaded={filters.seriesId === series.id ? 'true' : 'false'}
+            data-series={series.id}
+            data-creator={id}
+            data-query={browseParams(filters).toString()}
+            class="rounded-xl border border-zinc-800"
+            open={filters.seriesId === series.id}
+          >
+            <summary class="cursor-pointer p-4">
+              <span class="font-semibold text-white">{series.name}</span>
+              <span class="mt-1 block text-sm text-zinc-400">
+                {series.issueCount} credited issues · {series.coverCount} covers
+                · {series.copyCount} owned copies
+              </span>
+            </summary>
+            <div class="border-t border-zinc-800 p-4">
+              <div class="mb-3 flex flex-wrap gap-4 text-sm">
+                <a
+                  class="text-zinc-300 underline"
+                  href={`/collection/${series.id}`}
+                >
+                  Open full series
+                </a>
+                <a
+                  data-credited-page
+                  class="text-zinc-300 underline"
+                  href={seriesUrl(series.id)}
+                >
+                  View credited issues
+                </a>
+              </div>
+              <p
+                data-issue-message
+                aria-live="polite"
+                class="mb-2 text-sm text-zinc-400"
+              ></p>
+              <ul data-issue-list class="divide-y divide-zinc-800">
+                {filters.seriesId === series.id &&
+                  selected?.items.map((comic) => (
+                    <li class="py-3">
+                      <a
+                        class="font-semibold text-white underline"
+                        href={`/comics/${comic.id}`}
+                      >
+                        {comic.title} {comic.type === 'annual' ? 'Annual ' : ''}
+                        #{comic.number}
+                      </a>
+                      <p class="mt-1 text-sm text-zinc-400">
+                        {comic.cover || 'Regular cover'} ·{' '}
+                        {comic.roles?.replaceAll('_', ' ')} · {comic.quantity}{' '}
+                        owned copies
+                      </p>
+                    </li>
+                  ))}
+              </ul>
+              <button
+                type="button"
+                data-load-issues
+                hidden
+                data-page={
+                  filters.seriesId === series.id ? String(issuePage + 1) : '1'
+                }
+                class="mt-3 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-white"
+              >
+                Load more issues
+              </button>
+              {filters.seriesId === series.id && selected && (
+                <nav
+                  data-issue-pages
+                  aria-label="Credited issue pages"
+                  class="mt-3 flex gap-4 text-sm text-zinc-300"
+                >
+                  {issuePage > 1 && (
+                    <a
+                      class="underline"
+                      href={seriesUrl(series.id, issuePage - 1)}
+                    >
+                      Previous issues
+                    </a>
+                  )}
+                  {selected.hasMore && (
+                    <a
+                      class="underline"
+                      href={seriesUrl(series.id, issuePage + 1)}
+                    >
+                      Next issues
+                    </a>
+                  )}
+                </nav>
+              )}
+            </div>
+          </details>
+        ),
+      )}
+    </div>
+    {!groups.items.length && (
+      <p class="mt-4 text-zinc-400">
+        No matching series. Try a different title or clear the filters.
+      </p>
+    )}
+    <nav
+      aria-label="Series pages"
+      class="mt-5 flex gap-4 text-sm text-zinc-300"
+    >
+      {page > 1 && (
+        <a href={pageUrl(page - 1)} class="underline">
+          Previous series
+        </a>
+      )}
+      {page * 20 < groups.total && (
+        <a href={pageUrl(page + 1)} class="underline">
+          Next series
+        </a>
+      )}
+    </nav>
+  </div>
+</section>
+<script>
+  const filters = document.querySelector<HTMLFormElement>(
+    '[data-catalog-filters]',
+  );
+  filters?.addEventListener('input', (event) => {
+    if ((event.target as HTMLInputElement).name === 'title') {
+      const series = filters.querySelector<HTMLInputElement>('[name="series"]');
+      if (series) series.value = '';
+    }
+  });
+
+  const results = document.querySelector<HTMLElement>('[data-catalog-results]');
+  const feedback = document.querySelector<HTMLElement>('[data-filter-message]');
+  let filterVersion = 0;
+  let filterController: AbortController | undefined;
+  let filterTimer: ReturnType<typeof setTimeout>;
+  const filterUrl = () => {
+    const url = new URL(filters!.action, location.origin);
+    const data = new FormData(filters!);
+    for (const [name, value] of data)
+      if (typeof value === 'string' && value.trim())
+        url.searchParams.set(name, value.trim());
+    return url;
+  };
+  const updateResults = async (url: URL, version: number) => {
+    filterController = new AbortController();
+    try {
+      const response = await fetch(url, {
+        signal: filterController.signal,
+        headers: { Accept: 'text/html' },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error('Unable to filter series.');
+      const html = await response.text();
+      if (version !== filterVersion) return;
+      const next = new DOMParser()
+        .parseFromString(html, 'text/html')
+        .querySelector<HTMLElement>('[data-catalog-results]');
+      if (!next) throw new Error('Unable to filter series.');
+      results!.innerHTML = next.innerHTML;
+      history.replaceState(null, '', url.pathname + url.search);
+      feedback!.textContent = '';
+      initGroups();
+    } catch {
+      if (version === filterVersion)
+        feedback!.textContent =
+          'Series could not be updated. Press Enter to retry, or reload this page.';
+    } finally {
+      if (version === filterVersion) results!.removeAttribute('aria-busy');
+    }
+  };
+  const scheduleFilters = (delay = 250, url?: URL) => {
+    clearTimeout(filterTimer);
+    filterController?.abort();
+    const version = ++filterVersion;
+    results!.setAttribute('aria-busy', 'true');
+    feedback!.textContent = 'Updating series…';
+    filterTimer = setTimeout(
+      () => void updateResults(url ?? filterUrl(), version),
+      delay,
+    );
+  };
+  if (filters && results && feedback) {
+    filters.querySelector<HTMLButtonElement>('[data-apply-filters]')!.hidden =
+      true;
+    filters.addEventListener('input', (event) => {
+      if (
+        (event.target as HTMLInputElement).name === 'title' &&
+        !(event as InputEvent).isComposing
+      )
+        scheduleFilters();
+    });
+    filters.addEventListener('compositionend', () => scheduleFilters());
+    filters
+      .querySelector('[name="role"]')
+      ?.addEventListener('change', () => scheduleFilters(0));
+    filters.addEventListener('submit', (event) => {
+      event.preventDefault();
+      scheduleFilters(0);
+    });
+    filters
+      .querySelector('[data-clear-filters]')
+      ?.addEventListener('click', (event) => {
+        event.preventDefault();
+        const title =
+          filters.querySelector<HTMLInputElement>('[name="title"]')!;
+        title.value = '';
+        title.dispatchEvent(new Event('input', { bubbles: true }));
+        const role = filters.querySelector<HTMLSelectElement>('[name="role"]');
+        if (role) role.value = '';
+        scheduleFilters(0);
+      });
+    results.addEventListener('click', (event) => {
+      const link = (event.target as HTMLElement).closest<HTMLAnchorElement>(
+        'nav a',
+      );
+      if (
+        !link ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const url = new URL(link.href);
+      if (url.pathname !== new URL(filters.action).pathname) return;
+      event.preventDefault();
+      filters.querySelector<HTMLInputElement>('[name="series"]')!.value =
+        url.searchParams.get('series') ?? '';
+      filters.querySelector<HTMLInputElement>('[name="title"]')!.value =
+        url.searchParams.get('title') ?? '';
+      scheduleFilters(0, url);
+    });
+  }
+  function initGroups() {
+    for (const group of document.querySelectorAll<HTMLDetailsElement>(
+      '[data-creator-series]',
+    )) {
+      if (group.dataset.bound === 'true') continue;
+      group.dataset.bound = 'true';
+      const button =
+        group.querySelector<HTMLButtonElement>('[data-load-issues]')!;
+      const list = group.querySelector<HTMLUListElement>('[data-issue-list]')!;
+      const message = group.querySelector<HTMLElement>('[data-issue-message]')!;
+      let loading = false;
+      const load = async () => {
+        if (loading) return;
+        loading = true;
+        button.disabled = true;
+        message.textContent = 'Loading credited issues…';
+        const params = new URLSearchParams(group.dataset.query);
+        params.set('id', group.dataset.creator!);
+        params.set('series', group.dataset.series!);
+        params.set('page', button.dataset.page!);
+        try {
+          const response = await fetch('/api/catalog/issues?' + params, {
+            signal: AbortSignal.timeout(20000),
+          });
+          const data = await response.json();
+          if (!response.ok)
+            throw new Error(data.error || 'Unable to load issues.');
+          for (const comic of data.items) {
+            const li = document.createElement('li');
+            li.className = 'py-3';
+            const a = document.createElement('a');
+            a.href = '/comics/' + comic.id;
+            a.className = 'font-semibold text-white underline';
+            a.textContent = `${comic.title} ${comic.type === 'annual' ? 'Annual ' : ''}#${comic.number}`;
+            const p = document.createElement('p');
+            p.className = 'mt-1 text-sm text-zinc-400';
+            p.textContent = `${comic.cover || 'Regular cover'} · ${(comic.roles || 'credit').replaceAll('_', ' ')} · ${comic.quantity} owned copies`;
+            li.append(a, p);
+            list.append(li);
+          }
+          group.dataset.loaded = 'true';
+          button.dataset.page = String(Number(button.dataset.page) + 1);
+          button.hidden = !data.hasMore;
+          button.textContent = 'Load more issues';
+          message.textContent = data.items.length
+            ? ''
+            : 'No matching credited issues.';
+          group.querySelector<HTMLElement>('[data-issue-pages]')?.remove();
+        } catch (cause) {
+          message.textContent =
+            cause instanceof Error
+              ? cause.message
+              : 'Issues could not be loaded.';
+          button.hidden = false;
+          button.textContent = 'Retry loading issues';
+        } finally {
+          loading = false;
+          button.disabled = false;
+        }
+      };
+      group.addEventListener('toggle', () => {
+        if (group.open && group.dataset.loaded !== 'true') void load();
+      });
+      button.addEventListener('click', () => void load());
+      if (group.open && group.dataset.loaded !== 'true') void load();
+    }
+  }
+  initGroups();
+</script>

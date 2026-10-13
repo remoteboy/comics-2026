@@ -1,0 +1,91 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import TitleAutocomplete from '@/components/TitleAutocomplete.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { catalogConfig, listCatalog, type CatalogKind } from '../repository';
+import { positiveInt } from '@/lib/pagination';
+interface Props {
+  kind: CatalogKind;
+}
+const { kind } = Astro.props;
+const config = catalogConfig(kind);
+const q = Astro.url.searchParams.get('q') ?? '';
+const page = positiveInt(Astro.url.searchParams.get('page'));
+const result = await listCatalog(kind, q, page);
+Astro.response.headers.set('Cache-Control', 'no-store');
+const pageUrl = (p: number) =>
+  config.path + '?' + new URLSearchParams({ q, page: String(p) });
+---
+
+<AppLayout title={`${config.label}s`}>
+  <PageHeader
+    title={`${config.label}s`}
+    description="Browse your catalogue, correct names and combine duplicate records."
+  />
+  <form method="get" class="mb-5 flex gap-2">
+    <div class="min-w-0 flex-1">
+      <TitleAutocomplete
+        id={`${kind}-directory-search`}
+        endpoint={`/api/search/catalog?kind=${kind}`}
+        scope={kind}
+      >
+        <label
+          for={`${kind}-directory-search`}
+          class="sr-only"
+        >{`Find ${kind}s`}</label>
+        <input
+          id={`${kind}-directory-search`}
+          name="q"
+          type="search"
+          value={q}
+          maxlength="200"
+          placeholder={`Find a ${kind}…`}
+          class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+        />
+      </TitleAutocomplete>
+    </div>
+    <button class="rounded-lg border border-zinc-700 px-3 py-2 text-white">
+      Search
+    </button>
+  </form>
+  <p class="mb-3 text-sm text-zinc-400">
+    {result.total} {result.total === 1 ? kind : kind + 's'}
+  </p>
+  <ul class="divide-y divide-zinc-800 rounded-xl border border-zinc-800">
+    {result.items.map((item) => (
+      <li>
+        <a
+          href={`${config.path}/${item.id}`}
+          class="flex items-center justify-between gap-3 p-4 hover:bg-zinc-900"
+        >
+          <span class="min-w-0 break-words font-semibold text-white">
+            {item.name}
+          </span>
+          <span class="shrink-0 text-right text-sm text-zinc-400">
+            {item.comicCount} covers
+            <br />
+            {item.copyCount} owned copies
+          </span>
+        </a>
+      </li>
+    ))}
+  </ul>
+  {!result.items.length && (
+    <p class="mt-4 text-zinc-400">No matching records. Try another name.</p>
+  )}
+  <nav
+    aria-label="Directory pages"
+    class="mt-5 flex gap-4 text-sm text-zinc-300"
+  >
+    {page > 1 && (
+      <a class="underline" href={pageUrl(page - 1)}>
+        Previous
+      </a>
+    )}
+    {page * 40 < result.total && (
+      <a class="underline" href={pageUrl(page + 1)}>
+        Next
+      </a>
+    )}
+  </nav>
+</AppLayout>

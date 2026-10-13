@@ -1,4 +1,7 @@
 ---
+import { database } from '@/db';
+import { nonEmptyString } from '@/providers/utils';
+import { catalogIdentitySql } from '@/features/catalog/repository';
 import type { VariantDetail } from '@/features/collection/types';
 import { formatMoney } from '@/lib/format';
 
@@ -7,8 +10,14 @@ interface Props {
 }
 
 const { variant } = Astro.props;
+const publisherName = nonEmptyString(variant.publisherName);
+const publisher = publisherName
+  ? await database().get<{ id: number }>(catalogIdentitySql('publisher'), [
+      publisherName,
+    ])
+  : undefined;
 const rows = [
-  ['Publisher', variant.publisherName ?? '—'],
+  ['Publisher', publisherName ?? '—'],
   ['Issue type', variant.issueType === 'annual' ? 'Annual' : 'Issue'],
   ['Cover', variant.variantName || 'Regular cover'],
   ['Cover price', formatMoney(variant.coverPriceCents)],
@@ -29,7 +38,13 @@ const rows = [
             label === 'Significance' && value !== '—' && 'text-amber-200/85',
           ]}
         >
-          {value}
+          {label === 'Publisher' && publisher ? (
+            <a class="underline" href={`/publishers/${publisher.id}`}>
+              {value}
+            </a>
+          ) : (
+            value
+          )}
         </dd>
       </div>
     ))}

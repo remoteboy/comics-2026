@@ -2,11 +2,19 @@
 interface Props {
   id: string;
   endpoint: string;
+  scope?: string;
+  selection?: 'navigate' | 'submit';
 }
-const { id, endpoint } = Astro.props;
+const { id, endpoint, scope = 'titles', selection = 'navigate' } = Astro.props;
 ---
 
-<div class="relative min-w-0" data-title-autocomplete data-endpoint={endpoint}>
+<div
+  class="relative min-w-0"
+  data-title-autocomplete
+  data-endpoint={endpoint}
+  data-scope={scope}
+  data-selection={selection}
+>
   <slot />
   <div
     hidden
@@ -16,7 +24,9 @@ const { id, endpoint } = Astro.props;
     <ul
       id={`${id}-suggestions`}
       role="listbox"
-      aria-label="Title suggestions"
+      aria-label={
+        scope === 'titles' ? 'Title suggestions' : 'Search suggestions'
+      }
       data-search-results
     ></ul>
     <p
@@ -49,6 +59,12 @@ const { id, endpoint } = Astro.props;
     let active = -1;
     let items: { label: string; detail: string; href: string }[] = [];
     let composing = false;
+    const choose = (item: { label: string; href: string }) => {
+      if (root.dataset.selection === 'submit') {
+        input.value = item.label;
+        input.form?.requestSubmit();
+      } else location.assign(item.href);
+    };
     const close = () => {
       popup.hidden = true;
       input.setAttribute('aria-expanded', 'false');
@@ -91,6 +107,12 @@ const { id, endpoint } = Astro.props;
           const series =
             input.form?.querySelector<HTMLInputElement>('[name="series"]');
           if (series) url.searchParams.set('series', series.value);
+          const role =
+            input.form?.querySelector<HTMLSelectElement>('[name="role"]');
+          if (role) url.searchParams.set('role', role.value);
+          const owned =
+            input.form?.querySelector<HTMLInputElement>('[name="owned"]');
+          if (owned) url.searchParams.set('owned', owned.checked ? '1' : '0');
           const response = await fetch(url, {
             signal: controller.signal,
             headers: { Accept: 'application/json' },
@@ -104,7 +126,9 @@ const { id, endpoint } = Astro.props;
           items = data.items.filter(
             (item: { href: string }) =>
               typeof item.href === 'string' &&
-              /^\/(?:collection\/\d+|intake\?)/.test(item.href),
+              /^\/(?:collection\/\d+|creators\/\d+|publishers\/\d+|intake\?)/.test(
+                item.href,
+              ),
           );
           list.replaceChildren();
           items.forEach((item, i) => {
@@ -114,6 +138,11 @@ const { id, endpoint } = Astro.props;
             li.setAttribute('aria-selected', 'false');
             const a = document.createElement('a');
             a.href = item.href;
+            if (root.dataset.selection === 'submit')
+              a.addEventListener('click', (event) => {
+                event.preventDefault();
+                choose(item);
+              });
             a.tabIndex = -1;
             a.className =
               'block rounded-md px-3 py-2 text-sm text-white hover:bg-zinc-800';
@@ -128,8 +157,10 @@ const { id, endpoint } = Astro.props;
           });
           show(
             items.length
-              ? `${items.length} title suggestions. Use arrow keys to choose.`
-              : 'No matching titles. Try another name.',
+              ? `${items.length} suggestions. Use arrow keys to choose.`
+              : root.dataset.scope === 'titles'
+                ? 'No matching titles. Try another name.'
+                : 'No matches. Try another name.',
           );
           if (document.activeElement !== input) close();
         } catch (cause) {
@@ -152,9 +183,10 @@ const { id, endpoint } = Astro.props;
       composing = false;
       schedule();
     });
-    input.form
-      ?.querySelector('[name="source"]')
-      ?.addEventListener('change', schedule);
+    for (const name of ['source', 'role', 'owned'])
+      input.form
+        ?.querySelector(`[name="${name}"]`)
+        ?.addEventListener('change', schedule);
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         ++version;
@@ -177,7 +209,7 @@ const { id, endpoint } = Astro.props;
       }
       if (event.key === 'Enter' && active >= 0) {
         event.preventDefault();
-        location.assign(items[active].href);
+        choose(items[active]);
       }
     });
     input.addEventListener('focus', () => {

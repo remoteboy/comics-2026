@@ -1,0 +1,58 @@
+---
+import Detail from '@/features/catalog/components/CatalogDetail.astro';
+import {
+  getCatalogRecord,
+  catalogRedirect,
+  changeCatalog,
+} from '@/features/catalog/repository';
+import {
+  sameOriginWrite,
+  limitedForm,
+  formText,
+  formInteger,
+} from '@/features/collection/write-form';
+const id = Number(Astro.params.id);
+if (!Number.isSafeInteger(id) || id < 1) return Astro.redirect('/creators');
+let error: string | undefined;
+let submitted: FormData | undefined;
+Astro.response.headers.set('Cache-Control', 'no-store');
+if (Astro.request.method === 'POST') {
+  if (!sameOriginWrite(Astro.request, Astro.url)) {
+    Astro.response.status = 403;
+    error = 'Reload this page before saving.';
+  } else
+    try {
+      submitted = await limitedForm(Astro.request, 8192);
+      const action = formText(submitted, 'action');
+      if (action !== 'rename' && action !== 'merge')
+        throw new Error('Choose a valid action.');
+      const target = String(submitted.get('target') ?? '').split(':');
+      const saved = await changeCatalog({
+        requestId: formText(submitted, 'requestId'),
+        kind: 'creator',
+        id,
+        version: formInteger(submitted, 'version'),
+        action,
+        ...(action === 'rename'
+          ? { name: formText(submitted, 'name') }
+          : {
+              targetId: Number(target[0]),
+              targetVersion: Number(target[1]),
+              confirmed: submitted.get('confirmed') === '1',
+            }),
+      });
+      return Astro.redirect('/creators/' + saved + '?saved=1', 303);
+    } catch (cause) {
+      Astro.response.status = 400;
+      error = cause instanceof Error ? cause.message : 'Unable to save.';
+    }
+}
+const record = await getCatalogRecord('creator', id);
+if (!record) {
+  const redirect = await catalogRedirect('creator', id);
+  if (redirect) return Astro.redirect('/creators/' + redirect, 302);
+  return Astro.redirect('/creators');
+}
+---
+
+<Detail kind="creator" record={record} error={error} submitted={submitted} />
