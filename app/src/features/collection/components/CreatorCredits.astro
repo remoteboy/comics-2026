@@ -1,12 +1,15 @@
 ---
 import type { VariantCredit } from '@/features/collection/types';
 import { groupBy } from '@/lib/collections';
+import { nonEmptyString } from '@/providers/utils';
 
 interface Props {
   credits: VariantCredit[];
 }
 
-const { credits } = Astro.props;
+const credits = Astro.props.credits.filter((credit) =>
+  nonEmptyString(credit.name),
+);
 const grouped = groupBy(credits, (credit) => credit.role ?? 'credit');
 ---
 

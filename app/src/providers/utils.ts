@@ -20,7 +20,7 @@ export function asString(value: unknown): string | null {
 
 export function nonEmptyString(value: unknown): string | null {
   const string = asString(value)?.trim();
-  return string ? string : null;
+  return string && string.toLowerCase() !== 'null' ? string : null;
 }
 
 export function asNumber(value: unknown): number | null {

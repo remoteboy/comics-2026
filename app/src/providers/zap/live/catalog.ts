@@ -84,7 +84,9 @@ export function normalizeCurrentZapIssue(
     externalId,
     seriesExternalId: nonEmptyString(issue.title_id),
     number,
-    type: normalizeIssueType(issue.issue_type_name),
+    type: normalizeIssueType(
+      issue.issue_type_name ?? (issue.issue_type_id === 2 ? 'Annual' : 'Issue'),
+    ),
     storyTitle: nonEmptyString(issue.story_title),
     description: nonEmptyString(issue.details),
     firstAppearanceOf: nonEmptyString(issue.first_appearance_of),

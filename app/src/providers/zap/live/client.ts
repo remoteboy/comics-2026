@@ -23,6 +23,7 @@ interface IssuesForTitleOptions {
   issueNumber?: string;
   page?: number;
   pageSize?: number;
+  issueTypeIds?: number[];
 }
 
 interface RefreshResponse {
@@ -65,6 +66,7 @@ export class ZapSupabaseClient {
     issueNumber = '',
     page = 1,
     pageSize = 5000,
+    issueTypeIds = [1],
   }: IssuesForTitleOptions): Promise<ZapIssuesForTitleResponse> {
     return this.rpc('get_issues_for_title_filtered_paginated', {
       p_title_slug: titleSlug,
@@ -73,7 +75,7 @@ export class ZapSupabaseClient {
       p_search_query: issueNumber,
       p_user_id: null,
       p_filter: 'all',
-      p_issue_type_ids: [1],
+      p_issue_type_ids: issueTypeIds,
       p_fetch_only_key_issues: false,
     });
   }
@@ -221,6 +223,7 @@ export class ZapSupabaseClient {
         method: 'POST',
         headers,
         body: JSON.stringify({ refresh_token: refreshToken }),
+        signal: AbortSignal.timeout(20000),
       });
     } catch (error) {
       throw new ZapLiveError(
@@ -319,7 +322,11 @@ export class ZapSupabaseClient {
     let response: Response;
 
     try {
-      response = await this.fetchImpl(url, { ...init, headers });
+      response = await this.fetchImpl(url, {
+        ...init,
+        headers,
+        signal: init.signal ?? AbortSignal.timeout(20000),
+      });
     } catch (error) {
       throw new ZapLiveError(
         'network_error',

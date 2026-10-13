@@ -45,6 +45,7 @@ export default defineConfig({
       COVER_UPLOAD_ROOT: resolve('.test/covers'),
       ZAP_SUPABASE_PUBLISHABLE_KEY: '',
       ZAP_ACCESS_TOKEN: '',
+      COMIC_VINE_API_KEY: '',
       ZAP_REFRESH_TOKEN: '',
       ZAP_SESSION_PATH: resolve('.test/zap-session.json'),
     },

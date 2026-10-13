@@ -1,0 +1,1338 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import CoverImage from '@/components/CoverImage.astro';
+import { database } from '@/db';
+import { listBoxOptions } from '@/features/boxes/repository';
+import {
+  discoverZapCovers,
+  loadIntakeLookup,
+  searchZapTitles,
+  storeIntakeLookup,
+  storeIntakeLookups,
+  validateLocalTitle,
+} from '@/features/intake/catalog';
+import { ComicVineIntakeClient } from '@/features/intake/comic-vine';
+import { safeProviderImage } from '@/features/intake/images';
+import { intakeFromForm, nextIssueNumber } from '@/features/intake/form';
+import { saveIntake } from '@/features/intake/save';
+import type {
+  IntakeLookup,
+  IntakeSource,
+  IntakeTitle,
+} from '@/features/intake/types';
+import { limitedForm, sameOriginWrite } from '@/features/collection/write-form';
+import { MAX_COVER_BYTES, validateCover } from '@/covers/upload';
+
+let error: string | undefined;
+let submitted: FormData | undefined;
+let source: IntakeSource = ['zap', 'comic_vine', 'manual'].includes(
+  Astro.url.searchParams.get('source') ?? '',
+)
+  ? (Astro.url.searchParams.get('source') as IntakeSource)
+  : 'zap';
+let lookupId = Astro.url.searchParams.get('lookup') ?? '';
+let lookup: IntakeLookup | undefined;
+let selectedTitle: IntakeTitle | undefined;
+let titleResults: IntakeTitle[] = [];
+let titleLookupIds: string[] = [];
+let localSeriesId = Number(Astro.url.searchParams.get('series')) || null;
+let localSeries = localSeriesId
+  ? await database().get<{
+      id: number;
+      name: string;
+      year: number | null;
+      status: string;
+    }>('SELECT id,name,start_year AS year,status FROM series WHERE id=?', [
+      localSeriesId,
+    ])
+  : undefined;
+let search = Astro.url.searchParams.get('search') ?? localSeries?.name ?? '';
+let searchNumber = Astro.url.searchParams.get('number') ?? '';
+let searchType =
+  Astro.url.searchParams.get('issueType') === 'annual' ? 'annual' : 'issue';
+let showCovers = false;
+let expiredLookup = false;
+Astro.response.headers.set('Cache-Control', 'no-store');
+const addedId = Number(Astro.url.searchParams.get('added'));
+const added =
+  Number.isSafeInteger(addedId) && addedId > 0
+    ? await database().get<{ variantId: number; warnings: string }>(
+        'SELECT h.variant_id AS variantId,r.warnings_json AS warnings FROM holdings h JOIN intake_requests r ON r.result_holding_id=h.id WHERE h.id=?',
+        [addedId],
+      )
+    : undefined;
+const warnings: string[] = added ? JSON.parse(added.warnings) : [];
+if (Astro.request.method === 'POST') {
+  if (!sameOriginWrite(Astro.request, Astro.url, true)) {
+    Astro.response.status = 403;
+    error = 'Reload the intake form and try again.';
+  } else
+    try {
+      submitted = await limitedForm(
+        Astro.request,
+        MAX_COVER_BYTES + 128 * 1024,
+      );
+      const input = intakeFromForm(submitted);
+      const image = submitted.get('coverImage');
+      const photo =
+        image instanceof File && image.size
+          ? await validateCover(image)
+          : undefined;
+      const saved = await saveIntake(input, photo);
+      const next =
+        Astro.url.searchParams.get('next') === '1' ||
+        submitted.get('saveAction') === 'next' ||
+        submitted.get('next') === '1';
+      if (next) {
+        const params = new URLSearchParams({
+          added: String(saved.holdingId),
+          number: nextIssueNumber(input.number),
+          issueType: input.issueType,
+          series: String(saved.seriesId),
+        });
+        if (input.lookupId) {
+          params.set('lookup', input.lookupId);
+          if (params.get('number')) params.set('find', '1');
+        } else params.set('source', 'manual');
+        return Astro.redirect('/intake?' + params, 303);
+      }
+      return Astro.redirect(
+        `/comics/${saved.variantId}?copy=${saved.holdingId}&saved=1&intake=${saved.holdingId}`,
+        303,
+      );
+    } catch (cause) {
+      Astro.response.status = 400;
+      error =
+        cause instanceof Error ? cause.message : 'Unable to save the purchase.';
+    }
+}
+const entered = (name: string, fallback: string) => {
+  const value = submitted?.get(name);
+  return typeof value === 'string' ? value : fallback;
+};
+if (submitted) {
+  lookupId = entered('lookupId', lookupId);
+  localSeriesId = Number(entered('localSeriesId', '')) || null;
+  searchNumber = entered('number', searchNumber);
+  searchType =
+    entered('issueType', searchType) === 'annual' ? 'annual' : 'issue';
+  if (!lookupId) source = 'manual';
+}
+try {
+  if (lookupId) {
+    try {
+      lookup = await loadIntakeLookup(lookupId);
+    } catch (cause) {
+      lookup = await loadIntakeLookup(lookupId, database(), true);
+      expiredLookup = true;
+      if (Astro.url.searchParams.get('find') !== '1')
+        error =
+          error ??
+          (cause instanceof Error
+            ? cause.message
+            : 'Look up this issue again.');
+    }
+    source = lookup.title.source;
+    selectedTitle = lookup.title;
+    localSeriesId = lookup.localSeriesId;
+    search = lookup.title.name;
+    if (!submitted && Astro.url.searchParams.get('find') === '1') {
+      if (
+        localSeriesId === null &&
+        localSeries?.id === Number(Astro.url.searchParams.get('series'))
+      )
+        localSeriesId = localSeries.id;
+      await validateLocalTitle(selectedTitle, localSeriesId);
+      const covers =
+        source === 'zap'
+          ? await discoverZapCovers(
+              selectedTitle,
+              searchNumber,
+              searchType as 'issue' | 'annual',
+            )
+          : await new ComicVineIntakeClient().discoverCovers(
+              selectedTitle,
+              searchNumber,
+              searchType as 'issue' | 'annual',
+            );
+      lookup = {
+        title: selectedTitle,
+        localSeriesId,
+        issueNumber: searchNumber.trim(),
+        issueType: searchType as 'issue' | 'annual',
+        covers,
+      };
+      lookupId = await storeIntakeLookup(lookup);
+      showCovers = true;
+      expiredLookup = false;
+    } else {
+      showCovers =
+        Boolean(lookup.issueNumber) &&
+        (!Astro.url.searchParams.has('number') || submitted !== undefined);
+      searchNumber = submitted
+        ? searchNumber
+        : (Astro.url.searchParams.get('number') ?? lookup.issueNumber);
+      searchType = submitted
+        ? searchType
+        : (Astro.url.searchParams.get('issueType') ?? lookup.issueType);
+    }
+  } else if (source !== 'manual' && search.length >= 2) {
+    titleResults =
+      source === 'zap'
+        ? await searchZapTitles(search)
+        : await new ComicVineIntakeClient().searchTitles(search);
+    const mapped = localSeriesId
+      ? await database().all<{ id: string }>(
+          "SELECT DISTINCT external_id AS id FROM external_refs WHERE entity_type='series' AND entity_id=? AND provider=?",
+          [localSeriesId, source],
+        )
+      : [];
+    const titleId =
+      Astro.url.searchParams.get('title') ??
+      (mapped.length === 1 ? mapped[0].id : null);
+    selectedTitle = titleResults.find((title) => title.externalId === titleId);
+    if (titleId && !selectedTitle)
+      throw new Error(
+        'That provider title is no longer in the search results. Search again.',
+      );
+    if (selectedTitle && Astro.url.searchParams.get('find') === '1') {
+      await validateLocalTitle(selectedTitle, localSeriesId);
+      const covers =
+        source === 'zap'
+          ? await discoverZapCovers(
+              selectedTitle,
+              searchNumber,
+              searchType as 'issue' | 'annual',
+            )
+          : await new ComicVineIntakeClient().discoverCovers(
+              selectedTitle,
+              searchNumber,
+              searchType as 'issue' | 'annual',
+            );
+      lookup = {
+        title: selectedTitle,
+        localSeriesId,
+        issueNumber: searchNumber.trim(),
+        issueType: searchType as 'issue' | 'annual',
+        covers,
+      };
+      lookupId = await storeIntakeLookup(lookup);
+      showCovers = true;
+      expiredLookup = false;
+    }
+  }
+} catch (cause) {
+  error =
+    error ??
+    (cause instanceof Error
+      ? cause.message
+      : 'Provider lookup is unavailable.');
+}
+if (!error && !lookupId && source !== 'manual') {
+  if (selectedTitle)
+    lookupId = await storeIntakeLookup({
+      title: selectedTitle,
+      localSeriesId,
+      issueNumber: '',
+      issueType: 'issue',
+      covers: [],
+    });
+  else if (titleResults.length)
+    titleLookupIds = await storeIntakeLookups(
+      titleResults.map((title) => ({
+        title,
+        localSeriesId,
+        issueNumber: '',
+        issueType: 'issue',
+        covers: [],
+      })),
+    );
+}
+const boxes = await listBoxOptions();
+const localMatches =
+  search.length >= 2
+    ? await database().all<{ id: number; name: string; year: number | null }>(
+        'SELECT id,name,start_year AS year FROM series WHERE name LIKE ? ORDER BY name COLLATE NOCASE LIMIT 15',
+        ['%' + search + '%'],
+      )
+    : [];
+const inputClass =
+  'mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-white';
+const purchaseForm =
+  source === 'manual' || (showCovers && lookup && lookup.covers.length > 0);
+const manual = source === 'manual';
+const today = new Date().toISOString().slice(0, 10);
+const selectedCover = entered('coverId', lookup?.covers[0]?.externalId ?? '');
+const manualLink =
+  '/intake?' +
+  new URLSearchParams({
+    source: 'manual',
+    ...(localSeriesId ? { series: String(localSeriesId) } : {}),
+    search,
+    number: searchNumber,
+    issueType: searchType,
+  });
+---
+
+<AppLayout title="Add to collection">
+  <Breadcrumbs
+    items={[
+      { href: '/collection', label: 'Collection' },
+      { label: 'Add to collection' },
+    ]}
+  />
+  <PageHeader
+    title="Add to collection"
+    description="Choose a title and issue, select your cover, and save your purchased copies together."
+  />
+  {added && (
+    <div
+      role="status"
+      class="mb-5 rounded-lg border border-emerald-900 bg-emerald-950/30 p-4 text-emerald-200"
+    >
+      Purchase saved.{' '}
+      <a href={`/comics/${added.variantId}?copy=${addedId}`} class="underline">
+        View the saved comic
+      </a>
+      . Enter the next issue below.
+    </div>
+  )}
+  {warnings.map((warning) => (
+    <p class="mb-4 rounded-lg border border-amber-900 bg-amber-950/30 p-3 text-amber-200">
+      {warning}
+    </p>
+  ))}
+  {error && (
+    <div
+      role="alert"
+      class="mb-5 rounded-lg border border-rose-900 bg-rose-950/30 p-4 text-rose-200"
+    >
+      <p>{error}</p>
+      {submitted && (
+        <p class="mt-2 text-sm">
+          Your entered details are retained. Reselect any photo before retrying.
+        </p>
+      )}
+      <a href={manualLink} class="mt-2 inline-block underline">
+        Use manual entry
+      </a>
+    </div>
+  )}
+  {!selectedTitle && !manual && (
+    <section class="mb-6 rounded-xl border border-zinc-800 p-5">
+      <h2 class="font-semibold text-white">1. Find the title</h2>
+      <form
+        method="get"
+        class="mt-4 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]"
+      >
+        {localSeriesId && (
+          <input type="hidden" name="series" value={String(localSeriesId)} />
+        )}
+        <label class="text-sm text-zinc-300">
+          <span id="title-search-label">Title name</span>
+          <input
+            name="search"
+            aria-labelledby="title-search-label"
+            minlength="2"
+            maxlength="200"
+            required
+            value={search}
+            class={inputClass}
+          />
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="source-label">Search with</span>
+          <select
+            name="source"
+            aria-labelledby="source-label"
+            class={inputClass}
+          >
+            <option value="zap" selected={source === 'zap'}>
+              Zap
+            </option>
+            <option value="comic_vine" selected={source === 'comic_vine'}>
+              Comic Vine
+            </option>
+          </select>
+        </label>
+        <button class="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-zinc-950">
+          Find titles
+        </button>
+      </form>
+      <a
+        href={manualLink}
+        class="mt-3 inline-block text-sm text-zinc-400 underline"
+      >
+        Enter a comic manually
+      </a>
+      {titleResults.length > 0 && (
+        <div class="mt-4 grid gap-2 sm:grid-cols-2">
+          {titleResults.map((title, index) => (
+            <a
+              href={
+                '/intake?' +
+                new URLSearchParams({
+                  source: title.source,
+                  lookup: titleLookupIds[index],
+                  ...(searchNumber
+                    ? { number: searchNumber, issueType: searchType }
+                    : {}),
+                  ...(localSeriesId ? { series: String(localSeriesId) } : {}),
+                })
+              }
+              class="rounded-lg border border-zinc-700 px-3 py-3 text-sm text-white hover:bg-zinc-900"
+            >
+              {title.name}
+              {title.year && !title.name.includes(String(title.year))
+                ? ` (${title.year})`
+                : ''}
+            </a>
+          ))}
+        </div>
+      )}
+      {search.length >= 2 && !error && titleResults.length === 0 && (
+        <p class="mt-4 text-sm text-zinc-400">
+          No matching provider titles. Try another name or manual entry.
+        </p>
+      )}
+      {localMatches.length > 0 && (
+        <details class="mt-4 text-sm text-zinc-400">
+          <summary class="cursor-pointer">
+            Matching titles already in your collection
+          </summary>
+          <div class="mt-2 space-y-2">
+            {localMatches.map((title) => (
+              <a
+                class="block underline"
+                href={`/intake?series=${title.id}&search=${encodeURIComponent(title.name)}&source=${source}`}
+              >
+                {title.name}
+                {title.year ? ` (${title.year})` : ''}
+              </a>
+            ))}
+          </div>
+        </details>
+      )}
+    </section>
+  )}
+  {selectedTitle && (
+    <section class="mb-6 rounded-xl border border-zinc-800 p-5">
+      <h2 class="font-semibold text-white">{selectedTitle.name}</h2>
+      <p class="mt-1 text-sm text-zinc-500">
+        {source === 'zap' ? 'Zap' : 'Comic Vine'} ·{' '}
+        <a href="/intake" class="underline">
+          Choose another title
+        </a>
+      </p>
+      <form
+        method="get"
+        class="mt-4 grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]"
+      >
+        <input type="hidden" name="source" value={source} />
+        <input type="hidden" name="search" value={search} />
+        {lookupId ? (
+          <input type="hidden" name="lookup" value={lookupId} />
+        ) : (
+          <input type="hidden" name="title" value={selectedTitle.externalId} />
+        )}
+        {localSeriesId && (
+          <input type="hidden" name="series" value={String(localSeriesId)} />
+        )}
+        <label class="text-sm text-zinc-300">
+          <span id="issue-search-label">Issue number</span>
+          <input
+            name="number"
+            aria-labelledby="issue-search-label"
+            required
+            maxlength="40"
+            value={searchNumber}
+            autofocus={Boolean(added)}
+            class={inputClass}
+            placeholder="1, 1/2, 12.1…"
+          />
+        </label>
+        <label class="text-sm text-zinc-300">
+          <span id="issue-type-search-label">Issue type</span>
+          <select
+            name="issueType"
+            aria-labelledby="issue-type-search-label"
+            class={inputClass}
+          >
+            <option value="issue" selected={searchType === 'issue'}>
+              Regular issue
+            </option>
+            <option value="annual" selected={searchType === 'annual'}>
+              Annual
+            </option>
+          </select>
+        </label>
+        <button
+          name="find"
+          value="1"
+          class="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-zinc-950"
+        >
+          Find covers
+        </button>
+      </form>
+      <a
+        href={manualLink}
+        class="mt-3 inline-block text-sm text-zinc-400 underline"
+      >
+        Enter this issue manually
+      </a>
+      <a
+        href={
+          '/intake?' +
+          new URLSearchParams({
+            source: source === 'zap' ? 'comic_vine' : 'zap',
+            search: selectedTitle.name,
+            number: searchNumber,
+            issueType: searchType,
+            ...(localSeriesId ? { series: String(localSeriesId) } : {}),
+          })
+        }
+        class="mt-3 ml-4 inline-block text-sm text-zinc-400 underline"
+      >
+        {source === 'zap' ? 'Try Comic Vine' : 'Try Zap'}
+      </a>
+      {showCovers && lookup?.covers.length === 0 && !error && (
+        <p class="mt-4 text-sm text-zinc-400">
+          No exact covers found for this issue and type. Check the number or add
+          it manually.
+        </p>
+      )}
+    </section>
+  )}
+  {purchaseForm && (
+    <form
+      method="post"
+      enctype="multipart/form-data"
+      id="intake-form"
+      data-draft-key={JSON.stringify([
+        source,
+        selectedTitle?.externalId ??
+          localSeriesId ??
+          entered('titleName', search),
+        lookup?.issueNumber ?? searchNumber,
+        lookup?.issueType ?? searchType,
+      ])}
+      data-expired={expiredLookup ? 'true' : undefined}
+      data-submitted={submitted ? 'true' : undefined}
+      data-zap={!manual && source === 'zap' ? 'true' : undefined}
+      class="space-y-6"
+    >
+      <input
+        type="hidden"
+        name="requestId"
+        value={entered('requestId', crypto.randomUUID())}
+      />
+      <input type="hidden" name="lookupId" value={manual ? '' : lookupId} />
+      <input
+        type="hidden"
+        name="localSeriesId"
+        value={localSeriesId ? String(localSeriesId) : ''}
+      />
+      <input type="hidden" name="expectedVersion" value="0" />
+      <input type="hidden" name="saveAction" value="save" />
+      {!manual && (
+        <>
+          <input type="hidden" name="titleName" value={selectedTitle!.name} />
+          <input type="hidden" name="number" value={lookup!.issueNumber} />
+          <input type="hidden" name="issueType" value={lookup!.issueType} />
+          <section class="rounded-xl border border-zinc-800 p-5">
+            <h2 class="font-semibold text-white">2. Choose your cover</h2>
+            <p class="mt-1 text-sm text-zinc-500">
+              {lookup!.covers.length} available{' '}
+              {lookup!.covers.length === 1 ? 'cover' : 'covers'} for{' '}
+              {lookup!.issueType === 'annual' ? 'Annual ' : '#'}
+              {lookup!.issueNumber}.
+            </p>
+            <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+              {lookup!.covers.map((cover, index) => {
+                const image = safeProviderImage(cover.imageUrl);
+                return (
+                  <label class="cursor-pointer rounded-lg border border-zinc-700 p-2 has-checked:border-emerald-500 has-checked:bg-emerald-950/20">
+                    <input
+                      type="radio"
+                      required
+                      name="coverId"
+                      value={cover.externalId}
+                      checked={cover.externalId === selectedCover}
+                      aria-labelledby={`intake-cover-${index}`}
+                      class="mb-2"
+                    />
+                    {cover.imageKey ? (
+                      <CoverImage
+                        imageKey={cover.imageKey}
+                        alt={cover.label || 'Regular cover'}
+                        class="w-full rounded"
+                      />
+                    ) : image ? (
+                      <img
+                        src={image}
+                        referrerpolicy="no-referrer"
+                        alt={cover.label || 'Regular cover'}
+                        width="200"
+                        height="300"
+                        loading="lazy"
+                        class="aspect-[2/3] w-full rounded bg-zinc-900 object-cover"
+                      />
+                    ) : (
+                      <CoverImage
+                        imageKey={null}
+                        alt="Cover image unavailable"
+                        class="w-full rounded"
+                      />
+                    )}
+                    <span
+                      id={`intake-cover-${index}`}
+                      class="mt-2 block text-sm text-zinc-200"
+                    >
+                      {cover.label || 'Regular cover'}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
+      {manual && (
+        <section class="rounded-xl border border-zinc-800 p-5">
+          <h2 class="font-semibold text-white">Comic details</h2>
+          <p class="mt-1 text-sm text-zinc-500">
+            Enter the title, issue and cover you purchased. Optional details can
+            be added later.
+          </p>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <input type="hidden" name="coverId" value="" />
+            <label class="text-sm text-zinc-300">
+              <span id="manual-title-label">Title name</span>
+              <input
+                name="titleName"
+                aria-labelledby="manual-title-label"
+                required
+                readonly={Boolean(localSeries)}
+                maxlength="500"
+                value={entered('titleName', localSeries?.name ?? search)}
+                class={inputClass}
+              />
+            </label>
+            <label class="text-sm text-zinc-300">
+              <span id="manual-number-label">Issue number</span>
+              <input
+                name="number"
+                aria-labelledby="manual-number-label"
+                maxlength="40"
+                required
+                value={entered('number', searchNumber)}
+                class={inputClass}
+              />
+            </label>
+            <label class="text-sm text-zinc-300">
+              <span id="manual-type-label">Issue type</span>
+              <select
+                name="issueType"
+                aria-labelledby="manual-type-label"
+                class={inputClass}
+              >
+                <option
+                  value="issue"
+                  selected={entered('issueType', searchType) === 'issue'}
+                >
+                  Regular issue
+                </option>
+                <option
+                  value="annual"
+                  selected={entered('issueType', searchType) === 'annual'}
+                >
+                  Annual
+                </option>
+              </select>
+            </label>
+            <label class="text-sm text-zinc-300">
+              <span id="manual-cover-label">Cover name</span>
+              <input
+                name="variantName"
+                aria-labelledby="manual-cover-label"
+                maxlength="500"
+                value={entered('variantName', '')}
+                class={inputClass}
+                placeholder="Regular cover, Cover B…"
+              />
+            </label>
+            <label class="text-sm text-zinc-300">
+              <span id="manual-publisher-label">Publisher</span>
+              <input
+                name="publisherName"
+                aria-labelledby="manual-publisher-label"
+                maxlength="500"
+                value={entered('publisherName', '')}
+                class={inputClass}
+              />
+            </label>
+            <label class="text-sm text-zinc-300">
+              <span id="manual-cover-price-label">Cover price (USD)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                name="coverPrice"
+                aria-labelledby="manual-cover-price-label"
+                value={entered('coverPrice', '')}
+                class={inputClass}
+              />
+            </label>
+            <label class="text-sm text-zinc-300">
+              <span id="manual-story-label">Story title</span>
+              <input
+                name="storyTitle"
+                aria-labelledby="manual-story-label"
+                maxlength="1000"
+                value={entered('storyTitle', '')}
+                class={inputClass}
+              />
+            </label>
+            <label class="text-sm text-zinc-300">
+              <span id="manual-appearance-label">
+                First appearance / significance
+              </span>
+              <input
+                name="firstAppearanceOf"
+                aria-labelledby="manual-appearance-label"
+                maxlength="1000"
+                value={entered('firstAppearanceOf', '')}
+                class={inputClass}
+              />
+            </label>
+            <label class="text-sm text-zinc-300 sm:col-span-2">
+              <span id="manual-notes-label">Comic notes</span>
+              <textarea
+                name="details"
+                aria-labelledby="manual-notes-label"
+                rows="3"
+                maxlength="20000"
+                class={inputClass}
+              >{entered('details','')}</textarea>
+            </label>
+          </div>
+        </section>
+      )}
+      <section class="rounded-xl border border-zinc-800 p-5">
+        <h2 class="font-semibold text-white">Your purchase</h2>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <label class="text-sm text-zinc-300">
+            <span id="intake-grade-label">Grade</span>
+            <input
+              type="number"
+              name="grade"
+              aria-labelledby="intake-grade-label"
+              min="0.1"
+              max="10"
+              step="0.1"
+              value={entered('grade', '9.4')}
+              class={inputClass}
+            />
+          </label>
+          <label class="text-sm text-zinc-300">
+            <span id="intake-box-label">Box</span>
+            <select
+              name="boxId"
+              aria-labelledby="intake-box-label"
+              class={inputClass}
+            >
+              <option value="" selected={entered('boxId', '') === ''}>
+                Unboxed
+              </option>
+              {boxes.map((box) => (
+                <option
+                  value={String(box.id)}
+                  selected={entered('boxId', '') === String(box.id)}
+                >
+                  Box {box.id}
+                  {box.label ? ` · ${box.label}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label class="text-sm text-zinc-300">
+            <span id="intake-qty-label">Quantity</span>
+            <input
+              type="number"
+              name="quantity"
+              aria-labelledby="intake-qty-label"
+              min="1"
+              max="10000"
+              step="1"
+              required
+              value={entered('quantity', '1')}
+              class={inputClass}
+            />
+          </label>
+          <label class="text-sm text-zinc-300">
+            <span id="intake-paid-label">Purchase price per copy (USD)</span>
+            <input
+              type="number"
+              name="purchasePrice"
+              aria-labelledby="intake-paid-label"
+              min="0"
+              step="0.01"
+              value={entered('purchasePrice', '')}
+              class={inputClass}
+            />
+          </label>
+          <label class="text-sm text-zinc-300">
+            <span id="intake-date-label">Purchase date</span>
+            <input
+              type="date"
+              name="purchaseDate"
+              aria-labelledby="intake-date-label"
+              value={entered('purchaseDate', today)}
+              class={inputClass}
+            />
+          </label>
+        </div>
+        <p class="mt-3 text-xs text-zinc-500">
+          Grade and box are remembered for the next issue. Purchase price and
+          date remain editable.
+        </p>
+      </section>
+      <section class="rounded-xl border border-zinc-800 p-5">
+        <h2 class="font-semibold text-white">Value per copy</h2>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <label class="text-sm text-zinc-300">
+            <span id="intake-value-label">Current value</span>
+            <select
+              name="valueMode"
+              id="intake-value-mode"
+              aria-labelledby="intake-value-label"
+              class={inputClass}
+            >
+              {!manual && source === 'zap' && (
+                <option
+                  value="zap"
+                  selected={entered('valueMode', 'zap') === 'zap'}
+                >
+                  Get a fresh Zap value when saving
+                </option>
+              )}
+              <option
+                value="manual"
+                selected={
+                  entered(
+                    'valueMode',
+                    manual || source === 'comic_vine' ? 'manual' : 'zap',
+                  ) === 'manual'
+                }
+              >
+                Enter a manual value
+              </option>
+              <option
+                value="unknown"
+                selected={entered('valueMode', '') === 'unknown'}
+              >
+                Save without a value
+              </option>
+            </select>
+          </label>
+          <label class="text-sm text-zinc-300">
+            <span id="intake-manual-value-label">
+              Manual current value (USD)
+            </span>
+            <input
+              type="number"
+              name="manualValue"
+              aria-labelledby="intake-manual-value-label"
+              min="0"
+              step="0.01"
+              value={entered('manualValue', '')}
+              class={inputClass}
+            />
+          </label>
+        </div>
+        {!manual && source === 'zap' ? (
+          <>
+            <button
+              type="button"
+              id="intake-preview"
+              class="mt-4 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-white"
+            >
+              Check Zap value
+            </button>
+            <p
+              id="intake-preview-status"
+              role="status"
+              class="mt-2 text-sm text-zinc-400"
+            >
+              A fresh quote is fetched when you save and updates your matching
+              cover/grade copies too.
+            </p>
+          </>
+        ) : (
+          <p class="mt-3 text-sm text-zinc-500">
+            Choose a Zap cover for automatic valuation, or enter the value you
+            know. Missing values are saved only when you explicitly choose Save
+            without a value.
+          </p>
+        )}
+      </section>
+      <details class="rounded-xl border border-zinc-800 p-5">
+        <summary class="cursor-pointer font-semibold text-white">
+          Cover photo and title details
+        </summary>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <label class="text-sm text-zinc-300 sm:col-span-2">
+            <span id="intake-photo-label">Cover photo</span>
+            <input
+              type="file"
+              name="coverImage"
+              aria-labelledby="intake-photo-label"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              class="mt-2 block w-full text-sm"
+            />
+            <span class="mt-2 block text-xs text-zinc-500">
+              Optional JPEG, PNG, WebP or GIF, up to 5 MB, for a new or missing
+              cover image. Replace an existing image from Edit comic details.
+            </span>
+          </label>
+          <label class="text-sm text-zinc-300">
+            <span id="intake-year-label">Title start year</span>
+            <input
+              type="number"
+              name="titleYear"
+              aria-labelledby="intake-year-label"
+              min="1800"
+              max="9999"
+              step="1"
+              value={entered(
+                'titleYear',
+                String(selectedTitle?.year ?? localSeries?.year ?? ''),
+              )}
+              class={inputClass}
+            />
+          </label>
+          <label class="text-sm text-zinc-300">
+            <span id="intake-status-label">Title status</span>
+            <select
+              name="titleStatus"
+              aria-labelledby="intake-status-label"
+              class={inputClass}
+            >
+              <option
+                value="ongoing"
+                selected={
+                  entered('titleStatus', localSeries?.status ?? 'ongoing') ===
+                  'ongoing'
+                }
+              >
+                Ongoing
+              </option>
+              <option
+                value="ended"
+                selected={
+                  entered('titleStatus', localSeries?.status ?? 'ongoing') ===
+                  'ended'
+                }
+              >
+                Ended
+              </option>
+            </select>
+            <span class="mt-1 block text-xs text-zinc-500">
+              Used when creating a new title.
+            </span>
+          </label>
+          {manual && (
+            <div class="sm:col-span-2">
+              <h3 class="text-sm font-semibold text-zinc-300">
+                Creators (optional)
+              </h3>
+              <div id="intake-credits" class="mt-2 space-y-3">
+                {(submitted?.getAll('creatorName') ?? ['']).map(
+                  (name, index) => (
+                    <div
+                      data-intake-credit
+                      class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]"
+                    >
+                      <label class="text-sm text-zinc-300">
+                        <span id={`intake-creator-${index}`}>Creator name</span>
+                        <input
+                          name="creatorName"
+                          aria-labelledby={`intake-creator-${index}`}
+                          maxlength="500"
+                          value={typeof name === 'string' ? name : ''}
+                          class={inputClass}
+                        />
+                      </label>
+                      <label class="text-sm text-zinc-300">
+                        <span id={`intake-role-${index}`}>Role</span>
+                        <select
+                          name="creatorRole"
+                          aria-labelledby={`intake-role-${index}`}
+                          class={inputClass}
+                        >
+                          {[
+                            '',
+                            'writer',
+                            'artist',
+                            'penciller',
+                            'inker',
+                            'colorist',
+                            'letterer',
+                            'cover_artist',
+                            'editor',
+                          ].map((role) => (
+                            <option
+                              value={role}
+                              selected={
+                                (submitted?.getAll('creatorRole')[index] ??
+                                  '') === role
+                              }
+                            >
+                              {role ? role.replaceAll('_', ' ') : 'Unspecified'}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        data-remove-intake-credit
+                        class="self-end rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ),
+                )}
+              </div>
+              <button
+                type="button"
+                id="intake-add-credit"
+                class="mt-3 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300"
+              >
+                Add creator
+              </button>
+            </div>
+          )}
+        </div>
+      </details>
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="submit"
+          disabled={expiredLookup}
+          class="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-zinc-950"
+        >
+          Save to collection
+        </button>
+        <button
+          type="submit"
+          disabled={expiredLookup}
+          name="next"
+          formaction="/intake?next=1"
+          value="1"
+          class="rounded-lg border border-zinc-600 px-4 py-2.5 text-sm font-semibold text-white"
+        >
+          Add &amp; Next
+        </button>
+        <a
+          href={localSeriesId ? `/collection/${localSeriesId}` : '/collection'}
+          class="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm text-zinc-400"
+        >
+          Cancel
+        </a>
+      </div>
+    </form>
+  )}
+</AppLayout>
+<script>
+  const form = document.querySelector<HTMLFormElement>('#intake-form');
+  const mode = form?.querySelector<HTMLSelectElement>('[name="valueMode"]');
+  const manual = form?.querySelector<HTMLInputElement>('[name="manualValue"]');
+  const grade = form?.querySelector<HTMLInputElement>('[name="grade"]');
+  const box = form?.querySelector<HTMLSelectElement>('[name="boxId"]');
+  const date = form?.querySelector<HTMLInputElement>('[name="purchaseDate"]');
+  if (form && form.dataset.submitted !== 'true') {
+    const now = new Date();
+    if (date)
+      date.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    try {
+      const defaults = JSON.parse(
+        localStorage.getItem('comics-intake-defaults') ?? '{}',
+      );
+      if (
+        grade &&
+        typeof defaults.grade === 'string' &&
+        (!defaults.grade || /^\d{1,2}(\.\d)?$/.test(defaults.grade))
+      )
+        grade.value = defaults.grade;
+      if (
+        box &&
+        typeof defaults.box === 'string' &&
+        Array.from(box.options).some((option) => option.value === defaults.box)
+      )
+        box.value = defaults.box;
+    } catch {}
+  }
+  const transferFields = [
+    'grade',
+    'boxId',
+    'quantity',
+    'purchasePrice',
+    'purchaseDate',
+    'valueMode',
+    'manualValue',
+  ];
+  if (form && form.dataset.submitted !== 'true' && form.dataset.draftKey) {
+    try {
+      const key = 'comics-intake-draft:' + form.dataset.draftKey;
+      const draft = JSON.parse(sessionStorage.getItem(key) ?? 'null');
+      sessionStorage.removeItem(key);
+      if (
+        draft &&
+        Date.now() - draft.savedAt < 10 * 60 * 1000 &&
+        typeof draft.coverId === 'string'
+      ) {
+        const choices = Array.from(
+          form.querySelectorAll<HTMLInputElement>(
+            'input[name="coverId"][type="radio"]',
+          ),
+        );
+        choices.forEach((choice) => {
+          choice.checked = choice.value === draft.coverId;
+        });
+        if (choices.length && !choices.some((choice) => choice.checked)) {
+          const notice = document.createElement('p');
+          notice.className = 'mb-4 text-sm text-amber-300';
+          notice.textContent =
+            'Your previous cover is no longer in these results. Choose the cover you purchased.';
+          notice.setAttribute('role', 'alert');
+          form.prepend(notice);
+        }
+      }
+      if (draft && Date.now() - draft.savedAt < 10 * 60 * 1000)
+        for (const name of transferFields) {
+          const field = form.querySelector<
+            HTMLInputElement | HTMLSelectElement
+          >(`[name="${name}"]`);
+          if (
+            field &&
+            typeof draft.fields?.[name] === 'string' &&
+            (field instanceof HTMLInputElement ||
+              Array.from(field.options).some(
+                (option) => option.value === draft.fields[name],
+              ))
+          )
+            field.value = draft.fields[name];
+        }
+    } catch {}
+  }
+  document
+    .querySelector<HTMLInputElement>('form[method="get"] input[name="lookup"]')
+    ?.form?.addEventListener('submit', () => {
+      if (!form?.dataset.draftKey) return;
+      try {
+        const fields: Record<string, string> = {};
+        for (const name of transferFields)
+          fields[name] =
+            form.querySelector<HTMLInputElement | HTMLSelectElement>(
+              `[name="${name}"]`,
+            )?.value ?? '';
+        sessionStorage.setItem(
+          'comics-intake-draft:' + form.dataset.draftKey,
+          JSON.stringify({
+            savedAt: Date.now(),
+            fields,
+            coverId: form.querySelector<HTMLInputElement>(
+              'input[name="coverId"]:checked',
+            )?.value,
+          }),
+        );
+      } catch {}
+    });
+  document.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
+    const target = new URL(link.href);
+    if (
+      !form ||
+      target.pathname !== '/intake' ||
+      target.searchParams.get('source') !== 'manual'
+    )
+      return;
+    link.addEventListener('click', () => {
+      try {
+        const key = JSON.stringify([
+          'manual',
+          Number(target.searchParams.get('series')) ||
+            target.searchParams.get('search') ||
+            '',
+          target.searchParams.get('number') || '',
+          target.searchParams.get('issueType') || 'issue',
+        ]);
+        const fields: Record<string, string> = {};
+        for (const name of transferFields)
+          fields[name] =
+            form.querySelector<HTMLInputElement | HTMLSelectElement>(
+              `[name="${name}"]`,
+            )?.value ?? '';
+        sessionStorage.setItem(
+          'comics-intake-draft:' + key,
+          JSON.stringify({ savedAt: Date.now(), fields }),
+        );
+      } catch {}
+    });
+  });
+  const update = () => {
+    if (manual) {
+      manual.disabled = mode?.value !== 'manual';
+      manual.required = mode?.value === 'manual';
+    }
+    const check = document.querySelector<HTMLButtonElement>('#intake-preview');
+    if (check) check.disabled = mode?.value !== 'zap';
+    const note = document.querySelector('#intake-preview-status');
+    if (note && mode?.value !== 'zap')
+      note.textContent =
+        mode?.value === 'manual'
+          ? 'Your manual value will be saved.'
+          : 'This purchase will be saved without a value.';
+  };
+  mode?.addEventListener('change', update);
+  update();
+  form?.addEventListener('submit', (event) => {
+    const action = form.querySelector<HTMLInputElement>('[name="saveAction"]');
+    if (action)
+      action.value =
+        (event.submitter as HTMLButtonElement | null)?.name === 'next'
+          ? 'next'
+          : 'save';
+    try {
+      localStorage.setItem(
+        'comics-intake-defaults',
+        JSON.stringify({ grade: grade?.value ?? '', box: box?.value ?? '' }),
+      );
+    } catch {}
+    form
+      .querySelectorAll<HTMLButtonElement>('button[type="submit"]')
+      .forEach((button) => {
+        button.disabled = true;
+        button.textContent = 'Saving…';
+      });
+  });
+  window.addEventListener('pageshow', () => {
+    form
+      ?.querySelectorAll<HTMLButtonElement>('button[type="submit"]')
+      .forEach((button) => {
+        button.disabled = form?.dataset.expired === 'true';
+        button.textContent =
+          button.name === 'next' ? 'Add & Next' : 'Save to collection';
+      });
+  });
+  const status = document.querySelector('#intake-preview-status');
+  let revision = 0;
+  form?.addEventListener('input', (event) => {
+    const field = event.target as HTMLInputElement | HTMLSelectElement;
+    if (!['grade', 'coverId', 'valueMode'].includes(field.name)) return;
+    revision++;
+    if (status)
+      status.textContent =
+        mode?.value === 'zap'
+          ? 'A fresh quote will be fetched when you save.'
+          : mode?.value === 'manual'
+            ? 'Your manual value will be saved.'
+            : 'This purchase will be saved without a value.';
+  });
+  document
+    .querySelector('#intake-preview')
+    ?.addEventListener('click', async () => {
+      if (!form || !status) return;
+      const requestRevision = ++revision;
+      status.textContent = 'Checking Zap…';
+      const body = new URLSearchParams({
+        lookupId:
+          form.querySelector<HTMLInputElement>('[name="lookupId"]')?.value ??
+          '',
+        coverId:
+          form.querySelector<HTMLInputElement>('[name="coverId"]:checked')
+            ?.value ?? '',
+        grade: grade?.value ?? '',
+      });
+      try {
+        const response = await fetch('/api/intake/valuation', {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body,
+        });
+        const result = await response.json();
+        if (requestRevision !== revision) return;
+        status.textContent = response.ok
+          ? `${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(result.priceCents / 100)} per copy at grade ${(result.gradeTenths / 10).toFixed(1)}. Refreshed again when saving.`
+          : (result.error ?? 'Zap value is unavailable.');
+      } catch {
+        if (requestRevision === revision)
+          status.textContent =
+            'Zap value is unavailable. Retry or enter a manual value.';
+      }
+    });
+  const photo = form?.querySelector<HTMLInputElement>('[name="coverImage"]');
+  let photoUrl: string | undefined;
+  const photoPreview = document.createElement('img');
+  photoPreview.alt = 'Selected cover photo';
+  photoPreview.width = 120;
+  photoPreview.height = 180;
+  photoPreview.className = 'mt-3 hidden w-24 rounded-lg';
+  const photoStatus = document.createElement('p');
+  photoStatus.className = 'mt-2 text-xs text-zinc-400';
+  photoStatus.setAttribute('role', 'status');
+  photo?.parentElement?.append(photoPreview, photoStatus);
+  photo?.addEventListener('change', () => {
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    const file = photo.files?.[0];
+    if (
+      file &&
+      (file.size > 5 * 1024 * 1024 ||
+        (file.type &&
+          !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(
+            file.type,
+          )))
+    ) {
+      photo.value = '';
+      photoPreview.classList.add('hidden');
+      photoStatus.textContent =
+        'Choose a JPEG, PNG, WebP or GIF no larger than 5 MB.';
+      return;
+    }
+    photoUrl = file ? URL.createObjectURL(file) : undefined;
+    photoPreview.classList.toggle('hidden', !file);
+    if (photoUrl) photoPreview.src = photoUrl;
+    photoStatus.textContent = file
+      ? 'Cover photo selected. Save to apply.'
+      : '';
+  });
+  const rows = document.querySelector('#intake-credits');
+  const template = rows?.lastElementChild?.cloneNode(true) as
+    HTMLElement | undefined;
+  let count = rows?.children.length ?? 0;
+  rows?.addEventListener('click', (event) => {
+    if ((event.target as HTMLElement).closest('[data-remove-intake-credit]'))
+      (event.target as HTMLElement).closest('[data-intake-credit]')?.remove();
+  });
+  document
+    .querySelector('#intake-add-credit')
+    ?.addEventListener('click', () => {
+      if (!rows || !template) return;
+      const row = template.cloneNode(true) as HTMLElement;
+      row.querySelectorAll('label').forEach((label, index) => {
+        const span = label.querySelector('span');
+        const field = label.querySelector<HTMLInputElement | HTMLSelectElement>(
+          'input,select',
+        );
+        if (span && field) {
+          span.id = `intake-credit-${count}-${index}`;
+          field.setAttribute('aria-labelledby', span.id);
+          field.value = '';
+        }
+      });
+      count++;
+      rows.append(row);
+      row.querySelector('input')?.focus();
+    });
+</script>

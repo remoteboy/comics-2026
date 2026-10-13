@@ -1,14 +1,15 @@
 ---
 interface Props {
   imageKey: string | null;
+  fallbackSrc?: string;
   alt: string;
   class?: string;
 }
 
-const { imageKey, alt, class: className = '' } = Astro.props;
+const { imageKey, fallbackSrc, alt, class: className = '' } = Astro.props;
 const src = imageKey
   ? `/covers/${encodeURIComponent(imageKey)}`
-  : '/covers/missing.jpg';
+  : (fallbackSrc ?? '/covers/missing.jpg');
 ---
 
 <img

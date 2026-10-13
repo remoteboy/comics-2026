@@ -73,6 +73,12 @@ function viewUrl(nextView: 'covers' | 'list'): string {
       class="flex rounded-lg border border-zinc-800 bg-zinc-900 p-1 text-sm"
     >
       <a
+        href={`/intake?series=${series.id}`}
+        class="rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-zinc-950"
+      >
+        Add issue
+      </a>
+      <a
         href={viewUrl('covers')}
         aria-current={view === 'covers' ? 'page' : undefined}
         class:list={[

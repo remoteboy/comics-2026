@@ -1,4 +1,5 @@
 export interface RuntimeEnvironment {
+  COMIC_VINE_API_KEY?: string;
   ZAP_SUPABASE_URL?: string;
   ZAP_SUPABASE_PUBLISHABLE_KEY?: string;
   ZAP_ACCESS_TOKEN?: string;
