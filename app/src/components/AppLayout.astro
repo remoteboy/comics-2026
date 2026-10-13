@@ -1,5 +1,6 @@
 ---
 import '@/styles/global.css';
+import TitleAutocomplete from './TitleAutocomplete.astro';
 
 interface Props {
   title: string;
@@ -77,6 +78,37 @@ const navigation = [
       </aside>
 
       <main id="main-content" class="min-w-0">
+        <div class="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
+          <form
+            action="/collection"
+            method="get"
+            role="search"
+            aria-label="Collection titles"
+            class="mx-auto flex max-w-7xl items-center gap-2"
+          >
+            <div class="min-w-0 flex-1">
+              <TitleAutocomplete
+                id="global-title-search"
+                endpoint="/api/search/titles"
+              >
+                <label for="global-title-search" class="sr-only">
+                  Search collection titles
+                </label>
+                <input
+                  id="global-title-search"
+                  name="q"
+                  type="search"
+                  maxlength="200"
+                  placeholder="Find a title in your collection…"
+                  class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                />
+              </TitleAutocomplete>
+            </div>
+            <button class="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-white">
+              Search collection
+            </button>
+          </form>
+        </div>
         <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-9">
           <slot />
         </div>

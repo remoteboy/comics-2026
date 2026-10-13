@@ -1,0 +1,202 @@
+---
+interface Props {
+  id: string;
+  endpoint: string;
+}
+const { id, endpoint } = Astro.props;
+---
+
+<div class="relative min-w-0" data-title-autocomplete data-endpoint={endpoint}>
+  <slot />
+  <div
+    hidden
+    data-search-popup
+    class="absolute top-full right-0 left-0 z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-950 p-1 shadow-xl"
+  >
+    <ul
+      id={`${id}-suggestions`}
+      role="listbox"
+      aria-label="Title suggestions"
+      data-search-results
+    ></ul>
+    <p
+      aria-live="polite"
+      aria-atomic="true"
+      data-search-message
+      class="px-3 py-2 text-sm text-zinc-400"
+    ></p>
+  </div>
+</div>
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>(
+    '[data-title-autocomplete]',
+  )) {
+    const input = root.querySelector<HTMLInputElement>(
+      'input:not([type="hidden"])',
+    );
+    const list = root.querySelector<HTMLUListElement>('[data-search-results]');
+    const popup = root.querySelector<HTMLElement>('[data-search-popup]');
+    const message = root.querySelector<HTMLElement>('[data-search-message]');
+    if (!input || !list || !popup || !message) continue;
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-controls', list.id);
+    input.setAttribute('aria-expanded', 'false');
+    input.autocomplete = 'off';
+    let timer: ReturnType<typeof setTimeout>;
+    let controller: AbortController | undefined;
+    let version = 0;
+    let active = -1;
+    let items: { label: string; detail: string; href: string }[] = [];
+    let composing = false;
+    const close = () => {
+      popup.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      active = -1;
+    };
+    const select = (index: number) => {
+      active = index;
+      Array.from(list.children).forEach((li, i) =>
+        li.setAttribute('aria-selected', String(i === active)),
+      );
+      if (active >= 0) {
+        input.setAttribute('aria-activedescendant', `${list.id}-${active}`);
+        list.children[active]?.scrollIntoView({ block: 'nearest' });
+      } else input.removeAttribute('aria-activedescendant');
+    };
+    const show = (text: string) => {
+      message.textContent = text;
+      popup.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      controller?.abort();
+      const requestVersion = ++version;
+      items = [];
+      list.replaceChildren();
+      close();
+      const q = input.value.trim();
+      if (q.length < 2 || composing) return;
+      show('Searching…');
+      timer = setTimeout(async () => {
+        controller = new AbortController();
+        try {
+          const url = new URL(root.dataset.endpoint!, location.origin);
+          url.searchParams.set('q', q);
+          const source =
+            input.form?.querySelector<HTMLSelectElement>('[name="source"]');
+          if (source) url.searchParams.set('source', source.value);
+          const series =
+            input.form?.querySelector<HTMLInputElement>('[name="series"]');
+          if (series) url.searchParams.set('series', series.value);
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' },
+          });
+          const data = await response.json();
+          if (requestVersion !== version) return;
+          if (!response.ok)
+            throw new Error(
+              data.error || 'Search is unavailable. Try Find titles.',
+            );
+          items = data.items.filter(
+            (item: { href: string }) =>
+              typeof item.href === 'string' &&
+              /^\/(?:collection\/\d+|intake\?)/.test(item.href),
+          );
+          list.replaceChildren();
+          items.forEach((item, i) => {
+            const li = document.createElement('li');
+            li.id = `${list.id}-${i}`;
+            li.setAttribute('role', 'option');
+            li.setAttribute('aria-selected', 'false');
+            const a = document.createElement('a');
+            a.href = item.href;
+            a.tabIndex = -1;
+            a.className =
+              'block rounded-md px-3 py-2 text-sm text-white hover:bg-zinc-800';
+            const label = document.createElement('span');
+            label.textContent = item.label;
+            const detail = document.createElement('span');
+            detail.textContent = item.detail;
+            detail.className = 'ml-2 text-xs text-zinc-400';
+            a.append(label, detail);
+            li.append(a);
+            list.append(li);
+          });
+          show(
+            items.length
+              ? `${items.length} title suggestions. Use arrow keys to choose.`
+              : 'No matching titles. Try another name.',
+          );
+          if (document.activeElement !== input) close();
+        } catch (cause) {
+          if (requestVersion !== version || controller?.signal.aborted) return;
+          show(
+            cause instanceof Error
+              ? cause.message
+              : 'Search is unavailable. Try Find titles.',
+          );
+        }
+      }, 300);
+    };
+    input.addEventListener('input', schedule);
+    // Keep focus on the combobox until a suggestion's click navigates.
+    list.addEventListener('mousedown', (event) => event.preventDefault());
+    input.addEventListener('compositionstart', () => {
+      composing = true;
+    });
+    input.addEventListener('compositionend', () => {
+      composing = false;
+      schedule();
+    });
+    input.form
+      ?.querySelector('[name="source"]')
+      ?.addEventListener('change', schedule);
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        ++version;
+        clearTimeout(timer);
+        controller?.abort();
+        close();
+        return;
+      }
+      if (popup.hidden) return;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (items.length)
+          select(
+            event.key === 'ArrowDown'
+              ? (active + 1) % items.length
+              : active <= 0
+                ? items.length - 1
+                : active - 1,
+          );
+      }
+      if (event.key === 'Enter' && active >= 0) {
+        event.preventDefault();
+        location.assign(items[active].href);
+      }
+    });
+    input.addEventListener('focus', () => {
+      if (items.length) {
+        popup.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+      }
+    });
+    root.addEventListener('focusout', (event) => {
+      if (!root.contains(event.relatedTarget as Node | null)) close();
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (!root.contains(event.target as Node)) close();
+    });
+  }
+</script>
+<style>
+  [role='option'][aria-selected='true'] {
+    background: #27272a;
+    border-radius: 0.375rem;
+  }
+</style>

@@ -1,5 +1,6 @@
 ---
 import AppLayout from '@/components/AppLayout.astro';
+import TitleAutocomplete from '@/components/TitleAutocomplete.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import CoverImage from '@/components/CoverImage.astro';
@@ -330,18 +331,23 @@ const manualLink =
         {localSeriesId && (
           <input type="hidden" name="series" value={String(localSeriesId)} />
         )}
-        <label class="text-sm text-zinc-300">
-          <span id="title-search-label">Title name</span>
-          <input
-            name="search"
-            aria-labelledby="title-search-label"
-            minlength="2"
-            maxlength="200"
-            required
-            value={search}
-            class={inputClass}
-          />
-        </label>
+        <TitleAutocomplete
+          id="intake-title-search"
+          endpoint="/api/intake/titles"
+        >
+          <label class="text-sm text-zinc-300">
+            <span id="title-search-label">Title name</span>
+            <input
+              name="search"
+              aria-labelledby="title-search-label"
+              minlength="2"
+              maxlength="200"
+              required
+              value={search}
+              class={inputClass}
+            />
+          </label>
+        </TitleAutocomplete>
         <label class="text-sm text-zinc-300">
           <span id="source-label">Search with</span>
           <select
