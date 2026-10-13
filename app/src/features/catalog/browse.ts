@@ -47,10 +47,10 @@ function conditions(kind: CatalogKind, id: number, filters: BrowseFilters) {
   }
   if (filters.title) {
     clauses.push(
-      "(s.name LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.sort_name,'') LIKE ? ESCAPE '\\' COLLATE NOCASE)",
+      "(s.name LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.sort_name,'') LIKE ? ESCAPE '\\' COLLATE NOCASE OR EXISTS(SELECT 1 FROM series_aliases sa WHERE sa.series_id=s.id AND sa.name LIKE ? ESCAPE '\\' COLLATE NOCASE))",
     );
     const q = '%' + filters.title.replace(/[\\%_]/g, '\\$&') + '%';
-    parameters.push(q, q);
+    parameters.push(q, q, q);
   }
   return { where: 'WHERE ' + clauses.join(' AND '), parameters };
 }

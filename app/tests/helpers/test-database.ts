@@ -30,6 +30,10 @@ const migrations = [
     '../../../d1/migrations/0010_catalog_management.sql',
     import.meta.url,
   ),
+  new URL(
+    '../../../d1/migrations/0011_series_box_administration.sql',
+    import.meta.url,
+  ),
 ].map((url) => readFileSync(url, 'utf8'));
 const seed = readFileSync(
   new URL('../fixtures/test-data.sql', import.meta.url),

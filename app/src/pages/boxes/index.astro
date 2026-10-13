@@ -1,5 +1,6 @@
 ---
 import AppLayout from '@/components/AppLayout.astro';
+import TitleAutocomplete from '@/components/TitleAutocomplete.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import BoxGrid from '@/features/boxes/components/BoxGrid.astro';
@@ -7,6 +8,7 @@ import { boxFilters } from '@/features/boxes/filters';
 import { listBoxes } from '@/features/boxes/repository';
 import { formatInteger } from '@/lib/format';
 
+Astro.response.headers.set('Cache-Control', 'no-store');
 const filters = boxFilters(Astro.url.searchParams);
 const boxes = await listBoxes(filters.query, filters.type);
 const active = Boolean(filters.query || filters.type !== 'all');
@@ -15,29 +17,61 @@ const active = Boolean(filters.query || filters.type !== 'all');
 <AppLayout title="Boxes">
   <PageHeader
     title="Boxes"
-    description={`${formatInteger(boxes.length)}${active ? ' matching' : ''} physical storage boxes.`}
-  />
+    description="Physical storage boxes for your collection."
+  >
+    <a
+      slot="actions"
+      href="/boxes/new"
+      class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-950"
+    >
+      Add box
+    </a>
+  </PageHeader>
+  {Astro.url.searchParams.get('boxRemoved') === '1' && (
+    <p
+      role="status"
+      class="mb-4 rounded-lg bg-emerald-950 p-3 text-emerald-200"
+    >
+      Empty box removed.
+    </p>
+  )}
 
   <form
     method="get"
+    action="/boxes"
+    data-box-filters
     class="mb-6 grid gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4 sm:grid-cols-[minmax(0,1fr)_11rem_auto]"
   >
+    <TitleAutocomplete
+      id="box-filter"
+      endpoint="/api/search/boxes"
+      scope="boxes"
+      minChars={1}
+    >
+      <label>
+        <span class="mb-1.5 block text-xs font-medium text-zinc-500">
+          Find box
+        </span>
+        <input
+          type="search"
+          id="box-filter"
+          name="q"
+          value={filters.query}
+          placeholder="Box number or label…"
+          class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+        />
+      </label>
+    </TitleAutocomplete>
     <label>
-      <span class="mb-1.5 block text-xs font-medium text-zinc-500">
-        Find box
+      <span
+        id="box-filter-type-label"
+        class="mb-1.5 block text-xs font-medium text-zinc-500"
+      >
+        Type
       </span>
-      <input
-        type="search"
-        name="q"
-        value={filters.query}
-        placeholder="Box number or label…"
-        class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
-      />
-    </label>
-    <label>
-      <span class="mb-1.5 block text-xs font-medium text-zinc-500">Type</span>
       <select
         name="type"
+        aria-labelledby="box-filter-type-label"
         class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white outline-none focus:border-zinc-500"
       >
         <option value="all" selected={filters.type === 'all'}>
@@ -55,26 +89,108 @@ const active = Boolean(filters.query || filters.type !== 'all');
       </select>
     </label>
     <div class="flex items-end gap-2">
-      <button class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white">
+      <button
+        data-box-apply
+        class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white"
+      >
         Apply
       </button>
-      {active && (
-        <a
-          href="/boxes"
-          class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white"
-        >
-          Reset
-        </a>
-      )}
+      <a
+        data-box-clear
+        href="/boxes"
+        class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400"
+      >
+        Reset
+      </a>
     </div>
   </form>
 
-  {boxes.length ? (
-    <BoxGrid boxes={boxes} />
-  ) : (
-    <EmptyState
-      title="No matching boxes"
-      description="Try another box number or storage type."
-    />
-  )}
+  <p
+    data-box-filter-message
+    aria-live="polite"
+    class="mb-3 text-sm text-zinc-400"
+  ></p>
+  <div data-box-results>
+    <p class="mb-3 text-sm text-zinc-400">
+      {formatInteger(boxes.length)}
+      {active ? ' matching' : ''} boxes
+    </p>
+    {boxes.length ? (
+      <BoxGrid boxes={boxes} />
+    ) : (
+      <EmptyState
+        title="No matching boxes"
+        description="Try another box number or storage type."
+      />
+    )}
+  </div>
 </AppLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-box-filters]');
+  const results = document.querySelector<HTMLElement>('[data-box-results]');
+  const message = document.querySelector<HTMLElement>(
+    '[data-box-filter-message]',
+  );
+  if (form && results && message) {
+    let version = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    let controller: AbortController | undefined;
+    const update = () => {
+      clearTimeout(timer);
+      controller?.abort();
+      const current = ++version;
+      results.setAttribute('aria-busy', 'true');
+      message.textContent = 'Updating boxes…';
+      timer = setTimeout(async () => {
+        controller = new AbortController();
+        const url = new URL(form.action);
+        for (const [name, value] of new FormData(form))
+          if (typeof value === 'string' && value.trim())
+            url.searchParams.set(name, value.trim());
+        try {
+          const response = await fetch(url, {
+            signal: controller.signal,
+            cache: 'no-store',
+          });
+          if (!response.ok) throw new Error();
+          const html = await response.text();
+          if (current !== version) return;
+          const next = new DOMParser()
+            .parseFromString(html, 'text/html')
+            .querySelector('[data-box-results]');
+          if (!next) throw new Error();
+          results.innerHTML = next.innerHTML;
+          history.replaceState(null, '', url.pathname + url.search);
+          message.textContent = '';
+        } catch {
+          if (current === version)
+            message.textContent =
+              'Boxes could not be updated. Press Enter to retry.';
+        } finally {
+          if (current === version) results.removeAttribute('aria-busy');
+        }
+      }, 250);
+    };
+    form.querySelector<HTMLButtonElement>('[data-box-apply]')!.hidden = true;
+    form.addEventListener('input', (event) => {
+      if (!(event as InputEvent).isComposing) update();
+    });
+    form.addEventListener('compositionend', update);
+    form.querySelector('[name="type"]')?.addEventListener('change', update);
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      update();
+    });
+    form
+      .querySelector('[data-box-clear]')
+      ?.addEventListener('click', (event) => {
+        event.preventDefault();
+        form.querySelector<HTMLInputElement>('[name="q"]')!.value = '';
+        form.querySelector<HTMLSelectElement>('[name="type"]')!.value = 'all';
+        form
+          .querySelector<HTMLInputElement>('[name="q"]')!
+          .dispatchEvent(new Event('input', { bubbles: true }));
+      });
+  }
+</script>

@@ -1,0 +1,65 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import BoxForm from '@/features/administration/components/BoxForm.astro';
+import { editableBox, saveBox } from '@/features/administration/repository';
+import {
+  sameOriginWrite,
+  limitedForm,
+  formText,
+  formInteger,
+} from '@/features/collection/write-form';
+const id = null;
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+let error: string | undefined;
+let data: FormData | undefined;
+if (Astro.request.method === 'POST') {
+  if (!sameOriginWrite(Astro.request, Astro.url)) {
+    Astro.response.status = 403;
+    error = 'Reload the box editor before saving.';
+  } else
+    try {
+      data = await limitedForm(Astro.request, 8192);
+      const action = formText(data, 'action');
+      if (action !== 'create') throw new Error('Choose a valid action.');
+      const number = String(data.get('number') ?? '');
+      const saved = await saveBox({
+        requestId: formText(data, 'requestId'),
+        id,
+        version: formInteger(data, 'version'),
+        action,
+        number: number ? formInteger(data, 'number', 1) : null,
+        label: formText(data, 'label') || null,
+        type: formText(data, 'type'),
+        confirmed: data.get('confirmed') === '1',
+      });
+      return Astro.redirect(`/boxes/${saved}?boxSaved=1`, 303);
+    } catch (cause) {
+      Astro.response.status = 400;
+      error =
+        cause instanceof Error ? cause.message : 'Unable to save box details.';
+    }
+}
+const record = id === null ? undefined : await editableBox(id);
+---
+
+<AppLayout title="Add box">
+  <Breadcrumbs
+    items={[{ label: 'Boxes', href: '/boxes' }, { label: 'Add box' }]}
+  />
+  <PageHeader
+    title="Add box"
+    description="Create a physical storage box for your collection."
+  />
+  {error && (
+    <p role="alert" class="mb-5 rounded-lg bg-red-950 p-3 text-red-200">
+      {error}{' '}
+      <a class="underline" href="/boxes/new">
+        Reload details
+      </a>
+    </p>
+  )}
+  <BoxForm record={record} submitted={data} />
+</AppLayout>

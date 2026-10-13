@@ -1,3 +1,4 @@
+import { searchBoxes } from '@/features/boxes/search';
 import { listCatalog, type CatalogKind } from '@/features/catalog/repository';
 import { database } from '@/db';
 import type { QueryDatabase } from '@/db/database';
@@ -9,8 +10,14 @@ export async function searchCollectionTitles(
   if (q.length < 2) return [];
   const escaped = q.replace(/[\\%_]/g, '\\$&');
   const rows = await db.all<{ id: number; name: string; year: number | null }>(
-    `SELECT id,name,start_year AS year FROM series WHERE name LIKE ? ESCAPE '\\' COLLATE NOCASE OR sort_name LIKE ? ESCAPE '\\' COLLATE NOCASE ORDER BY CASE WHEN name = ? COLLATE NOCASE THEN 0 WHEN name LIKE ? ESCAPE '\\' COLLATE NOCASE THEN 1 ELSE 2 END,name COLLATE NOCASE,id LIMIT 12`,
-    ['%' + escaped + '%', '%' + escaped + '%', q, escaped + '%'],
+    `SELECT id,name,start_year AS year FROM series WHERE name LIKE ? ESCAPE '\\' COLLATE NOCASE OR sort_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR EXISTS(SELECT 1 FROM series_aliases a WHERE a.series_id=series.id AND a.name LIKE ? ESCAPE '\\' COLLATE NOCASE) ORDER BY CASE WHEN name = ? COLLATE NOCASE THEN 0 WHEN name LIKE ? ESCAPE '\\' COLLATE NOCASE THEN 1 ELSE 2 END,name COLLATE NOCASE,id LIMIT 12`,
+    [
+      '%' + escaped + '%',
+      '%' + escaped + '%',
+      '%' + escaped + '%',
+      q,
+      escaped + '%',
+    ],
   );
   return rows.map((row) => ({
     label: row.name,
@@ -42,10 +49,11 @@ export async function searchCollection(
 ) {
   const q = query.trim().toLocaleLowerCase();
   if (q.length < 2) return [];
-  const [titles, creators, publishers] = await Promise.all([
+  const [titles, creators, publishers, boxes] = await Promise.all([
     searchCollectionTitles(query, db),
     searchCatalogRecords('creator', query, db),
     searchCatalogRecords('publisher', query, db),
+    searchBoxes(query, 'all', db),
   ]);
   const rank = (name: string) =>
     name.toLocaleLowerCase() === q
@@ -57,6 +65,7 @@ export async function searchCollection(
     ...titles.map((title) => ({ ...title, detail: 'Title · ' + title.detail })),
     ...creators,
     ...publishers,
+    ...boxes,
   ]
     .sort(
       (a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label),

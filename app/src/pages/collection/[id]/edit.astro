@@ -1,0 +1,164 @@
+---
+import AppLayout from '@/components/AppLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import {
+  editableSeries,
+  saveSeries,
+} from '@/features/administration/repository';
+import {
+  sameOriginWrite,
+  limitedForm,
+  formText,
+  formInteger,
+} from '@/features/collection/write-form';
+const id = Number(Astro.params.id);
+if (!Number.isSafeInteger(id) || id < 1) return Astro.redirect('/collection');
+Astro.response.headers.set('Cache-Control', 'no-store');
+let error: string | undefined;
+let data: FormData | undefined;
+if (Astro.request.method === 'POST') {
+  if (!sameOriginWrite(Astro.request, Astro.url)) {
+    Astro.response.status = 403;
+    error = 'Reload the series editor before saving.';
+  } else
+    try {
+      data = await limitedForm(Astro.request, 8192);
+      const year = formText(data, 'year');
+      const status = formText(data, 'status');
+      if (status !== 'ongoing' && status !== 'ended')
+        throw new Error('Choose a valid status.');
+      await saveSeries({
+        requestId: formText(data, 'requestId'),
+        id,
+        version: formInteger(data, 'version'),
+        name: formText(data, 'name'),
+        sortName: formText(data, 'sortName') || null,
+        year: year ? formInteger(data, 'year', 1800) : null,
+        status,
+      });
+      return Astro.redirect(`/collection/${id}?seriesSaved=1`, 303);
+    } catch (cause) {
+      Astro.response.status = 400;
+      error =
+        cause instanceof Error
+          ? cause.message
+          : 'Unable to save series details.';
+    }
+}
+const record = await editableSeries(id);
+if (!record) return Astro.redirect('/collection');
+const value = (name: string, fallback: string) =>
+  typeof data?.get(name) === 'string' ? String(data.get(name)) : fallback;
+const field =
+  'mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white';
+---
+
+<AppLayout title={`Edit ${record.name}`}>
+  <Breadcrumbs
+    items={[
+      { label: 'Collection', href: '/collection' },
+      { label: record.name, href: `/collection/${id}` },
+      { label: 'Edit series' },
+    ]}
+  />
+  <PageHeader
+    title="Edit series"
+    description="Update the series name, alphabetical order and status."
+  />
+  {error && (
+    <p role="alert" class="mb-5 rounded-lg bg-red-950 p-3 text-red-200">
+      {error}{' '}
+      <a class="underline" href={`/collection/${id}/edit`}>
+        Reload details
+      </a>
+    </p>
+  )}
+  <form method="post" class="max-w-2xl space-y-4">
+    <input
+      type="hidden"
+      name="requestId"
+      value={value('requestId', crypto.randomUUID())}
+    />
+    <input
+      type="hidden"
+      name="version"
+      value={value('version', String(record.version))}
+    />
+    <label class="block text-sm text-zinc-300">
+      <span id="series-name-label">Display name</span>
+      <input
+        name="name"
+        aria-labelledby="series-name-label"
+        required
+        maxlength="500"
+        class={field}
+        value={value('name', record.name)}
+      />
+    </label>
+    <label class="block text-sm text-zinc-300">
+      <span id="series-sort-label">Sort name</span>
+      <input
+        name="sortName"
+        aria-labelledby="series-sort-label"
+        maxlength="500"
+        class={field}
+        value={value('sortName', record.sortName ?? '')}
+      />
+      <span class="mt-1 block text-xs text-zinc-500">
+        Optional. For example, Goon, The. Leave blank to use the display name.
+      </span>
+    </label>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block text-sm text-zinc-300">
+        <span id="series-year-label">Start year</span>
+        <input
+          type="number"
+          name="year"
+          aria-labelledby="series-year-label"
+          min="1800"
+          max="2999"
+          step="1"
+          class={field}
+          value={value('year', record.year === null ? '' : String(record.year))}
+        />
+      </label>
+      <label class="block text-sm text-zinc-300">
+        <span id="series-status-label">Status</span>
+        <select
+          name="status"
+          aria-labelledby="series-status-label"
+          class={field}
+        >
+          <option
+            value="ongoing"
+            selected={value('status', record.status) === 'ongoing'}
+          >
+            Ongoing
+          </option>
+          <option
+            value="ended"
+            selected={value('status', record.status) === 'ended'}
+          >
+            Ended
+          </option>
+        </select>
+      </label>
+    </div>
+    <p class="text-sm text-zinc-400">
+      The previous name stays searchable. Changing the year updates a trailing
+      year in an unchanged display name.
+    </p>
+    <div class="flex gap-3">
+      <button class="rounded-lg bg-white px-4 py-2 font-semibold text-zinc-950">
+        Save series details
+      </button>
+      <a
+        class="rounded-lg border border-zinc-700 px-4 py-2 text-zinc-300"
+        href={`/collection/${id}`}
+      >
+        Cancel
+      </a>
+    </div>
+  </form>
+</AppLayout>

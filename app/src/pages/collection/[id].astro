@@ -53,6 +53,14 @@ function viewUrl(nextView: 'covers' | 'list'): string {
 
 <AppLayout title={title}>
   <MoveNotice />
+  {Astro.url.searchParams.get('seriesSaved') === '1' && (
+    <p
+      role="status"
+      class="mb-4 rounded-lg bg-emerald-950 p-3 text-emerald-200"
+    >
+      Series details saved.
+    </p>
+  )}
   <Breadcrumbs
     items={[{ href: '/collection', label: 'Collection' }, { label: title }]}
   />
@@ -72,6 +80,12 @@ function viewUrl(nextView: 'covers' | 'list'): string {
       slot="actions"
       class="flex rounded-lg border border-zinc-800 bg-zinc-900 p-1 text-sm"
     >
+      <a
+        href={`/collection/${series.id}/edit`}
+        class="rounded-md px-3 py-1.5 text-zinc-300 hover:text-white"
+      >
+        Edit series
+      </a>
       <a
         href={`/intake?series=${series.id}`}
         class="rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-zinc-950"

@@ -377,7 +377,7 @@ export async function saveIntake(
       : seriesExternalId
         ? ref('series', seriesExternalId)
         : {
-            sql: '(SELECT id FROM series WHERE name=? COLLATE NOCASE AND start_year IS ? ORDER BY id LIMIT 1)',
+            sql: '(SELECT id FROM (SELECT id,name,start_year FROM series UNION ALL SELECT series_id AS id,name,start_year FROM series_aliases) WHERE name=? COLLATE NOCASE AND start_year IS ? ORDER BY id LIMIT 1)',
             parameters: [titleName, titleYear],
           };
   const issue: Fragment = {

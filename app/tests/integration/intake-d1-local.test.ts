@@ -1,4 +1,9 @@
 import {
+  saveSeries,
+  saveBox,
+  editableBox,
+} from '@/features/administration/repository';
+import {
   changeCatalog,
   catalogIdentitySql,
 } from '@/features/catalog/repository';
@@ -165,6 +170,63 @@ it('runs the real intake batches on local D1, including replay, reuse and quote 
         ['creator', 99],
       ),
     ).toEqual({ id: 1 });
+    await saveSeries(
+      {
+        requestId: crypto.randomUUID(),
+        id: 1,
+        version: 0,
+        name: 'Alpha D1',
+        sortName: 'Alpha D1',
+        year: 2024,
+        status: 'ended',
+      },
+      db,
+    );
+    expect(await db.get('SELECT name FROM series WHERE id=1')).toEqual({
+      name: 'Alpha D1',
+    });
+    expect(
+      await db.get('SELECT name FROM series_aliases WHERE series_id=1'),
+    ).toEqual({ name: 'Alpha Adventures' });
+    const boxId = await saveBox(
+      {
+        requestId: crypto.randomUUID(),
+        id: null,
+        version: 0,
+        action: 'create',
+        label: 'D1 box',
+        type: 'short',
+      },
+      db,
+    );
+    await saveBox(
+      {
+        requestId: crypto.randomUUID(),
+        id: boxId,
+        version: 0,
+        action: 'edit',
+        label: 'D1 renamed',
+        type: 'long',
+      },
+      db,
+    );
+    expect(await editableBox(boxId, db)).toMatchObject({
+      label: 'D1 renamed',
+      type: 'long',
+    });
+    await saveBox(
+      {
+        requestId: crypto.randomUUID(),
+        id: boxId,
+        version: 1,
+        action: 'delete',
+        label: 'D1 renamed',
+        type: 'long',
+        confirmed: true,
+      },
+      db,
+    );
+    expect(await editableBox(boxId, db)).toBeUndefined();
   } finally {
     await mf.dispose();
   }

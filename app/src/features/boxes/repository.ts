@@ -16,13 +16,13 @@ export async function listBoxes(
 ): Promise<BoxListItem[]> {
   const clauses: string[] = [];
   const parameters: (string | number)[] = [];
-  const trimmed = query.trim();
+  const trimmed = query.trim().replace(/^box\s+#?\s*(\d+)$/i, '$1');
 
   if (trimmed) {
     clauses.push(
-      "(CAST(b.id AS TEXT) LIKE ? OR COALESCE(b.label, '') LIKE ? COLLATE NOCASE)",
+      "(CAST(b.id AS TEXT) LIKE ? ESCAPE '\\' OR COALESCE(b.label, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)",
     );
-    const search = `%${trimmed}%`;
+    const search = `%${trimmed.replace(/[\\%_]/g, '\\$&')}%`;
     parameters.push(search, search);
   }
 

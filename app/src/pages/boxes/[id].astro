@@ -18,9 +18,23 @@ const title = box.label || `Box ${box.id}`;
 
 <AppLayout title={title}>
   <MoveNotice />
+  {Astro.url.searchParams.get('boxSaved') === '1' && (
+    <p
+      role="status"
+      class="mb-4 rounded-lg bg-emerald-950 p-3 text-emerald-200"
+    >
+      Box details saved.
+    </p>
+  )}
   <Breadcrumbs items={[{ href: '/boxes', label: 'Boxes' }, { label: title }]} />
   <PageHeader title={title} eyebrow={`${box.type} box · #${box.id}`}>
     <div slot="actions" class="flex gap-2">
+      <a
+        href={`/boxes/${id}/edit`}
+        class="rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300"
+      >
+        Edit box
+      </a>
       {navigation.previousId && (
         <a
           href={`/boxes/${navigation.previousId}`}

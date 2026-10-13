@@ -47,6 +47,7 @@ export function seriesWhere(options: SeriesListOptions): {
     clauses.push(`(
       s.name LIKE ? COLLATE NOCASE
       OR COALESCE(s.sort_name, '') LIKE ? COLLATE NOCASE
+      OR EXISTS(SELECT 1 FROM series_aliases sa WHERE sa.series_id=s.id AND sa.name LIKE ? COLLATE NOCASE)
       OR EXISTS (
         SELECT 1
         FROM issues qi
@@ -63,7 +64,7 @@ export function seriesWhere(options: SeriesListOptions): {
         WHERE qi.series_id = s.id AND (qc.name LIKE ? COLLATE NOCASE OR EXISTS(SELECT 1 FROM creator_aliases ca WHERE ca.creator_id=qc.id AND ca.name LIKE ? COLLATE NOCASE))
       )
     )`);
-    parameters.push(search, search, search, search, search, search);
+    parameters.push(search, search, search, search, search, search, search);
   }
 
   if (status !== 'all') {
