@@ -1,5 +1,7 @@
 ---
 import MoveNotice from '@/features/collection/components/MoveNotice.astro';
+import { readableNotes } from '@/features/collection/readable-notes';
+import { copyArchive } from '@/features/collection/copy-archive';
 import { nonEmptyString } from '@/providers/utils';
 import { listBoxOptions } from '@/features/boxes/repository';
 import { database } from '@/db';
@@ -36,14 +38,27 @@ const [holdings, credits, externalReferences] = await Promise.all([
   listVariantExternalReferences(id),
 ]);
 const labels = copyLabels(holdings);
+const owned = holdings.filter((copy) => copy.quantity > 0);
+const removedCopies = (
+  await Promise.all(
+    holdings
+      .filter((copy) => copy.quantity === 0)
+      .map(async (copy) => ({
+        copy,
+        archive: await copyArchive(copy.holdingId),
+      })),
+  )
+).filter((row) => row.archive);
 variant.storyTitle = nonEmptyString(variant.storyTitle);
 variant.firstAppearanceOf = nonEmptyString(variant.firstAppearanceOf);
+variant.details = readableNotes(variant.details);
 const zapCover = externalReferences.find(
   (ref) => ref.provider === 'zap' && /^\d+$/.test(ref.externalId),
 );
 const selectedCopyId = Number(Astro.url.searchParams.get('copy'));
 const selectedCopy =
   holdings.find((holding) => holding.holdingId === selectedCopyId) ??
+  owned[0] ??
   holdings[0];
 const [history, valuations] = await Promise.all([
   selectedCopy ? listPriceHistory(selectedCopy.holdingId) : Promise.resolve([]),
@@ -63,7 +78,8 @@ const intakeWarnings =
         [intakeId],
       )
     : undefined;
-const title = `${variant.seriesName} #${variant.issueNumber}`;
+const issueLabel = `${variant.issueType === 'annual' ? 'Annual ' : '#'}${variant.issueNumber}`;
+const title = `${variant.seriesName} ${issueLabel}`;
 ---
 
 <AppLayout title={title}>
@@ -72,7 +88,7 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
     items={[
       { href: '/collection', label: 'Collection' },
       { href: `/collection/${variant.seriesId}`, label: variant.seriesName },
-      { label: `#${variant.issueNumber}` },
+      { label: issueLabel },
     ]}
   />
   <PageHeader
@@ -88,6 +104,18 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
       class="mb-5 rounded-lg border border-emerald-900 bg-emerald-950/30 p-4 text-emerald-200"
     >
       Saved to your collection.
+    </p>
+  )}
+  {['removed', 'restored'].some(
+    (key) => Astro.url.searchParams.get(key) === '1',
+  ) && (
+    <p
+      role="status"
+      class="mb-5 rounded-lg bg-emerald-950 p-4 text-emerald-200"
+    >
+      {Astro.url.searchParams.get('removed') === '1'
+        ? 'Copies removed. Purchase details and price history are retained below.'
+        : 'Copies restored.'}
     </p>
   )}
   {(intakeWarnings
@@ -133,9 +161,45 @@ const title = `${variant.seriesName} #${variant.issueNumber}`;
     <div class="min-w-0 space-y-8">
       <HoldingStats
         boxes={boxes}
-        holdings={holdings}
+        holdings={owned}
         valuations={currentValuations}
       />
+      {removedCopies.length > 0 && (
+        <details
+          id="removed-copies"
+          open={Astro.url.searchParams.get('removed') === '1'}
+          class="rounded-xl border border-zinc-800 p-5"
+        >
+          <summary class="cursor-pointer font-semibold text-zinc-300">
+            Removed copies
+          </summary>
+          <div class="mt-4 space-y-4">
+            {removedCopies.map(({ copy, archive }) => (
+              <div class="text-sm text-zinc-400">
+                <p>
+                  {archive!.quantity}{' '}
+                  {archive!.quantity === 1 ? 'copy' : 'copies'} ·{' '}
+                  {purchaseDetails(copy)}
+                </p>
+                <div class="mt-2 flex gap-4">
+                  <a
+                    href={`/copies/${copy.holdingId}/remove`}
+                    class="underline"
+                  >
+                    Restore copies
+                  </a>
+                  <a
+                    href={`/comics/${id}?copy=${copy.holdingId}#price-history`}
+                    class="underline"
+                  >
+                    Price history
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
 
       <section class="grid gap-6 xl:grid-cols-2">
         <VariantDetails variant={variant} />

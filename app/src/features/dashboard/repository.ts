@@ -37,6 +37,7 @@ export async function getDashboardSummary(
       (SELECT COUNT(*) FROM price_snapshots) AS priceSnapshotCount,
       (SELECT MAX(observed_at) FROM price_snapshots) AS latestValuationAt
     FROM holdings h
+    WHERE h.quantity > 0
   `);
 
   if (!row) throw new Error('Unable to load dashboard summary.');
@@ -64,7 +65,7 @@ export async function getMostValuableHoldings(
       JOIN variants v ON v.id = h.variant_id
       JOIN issues i ON i.id = v.issue_id
       JOIN series s ON s.id = i.series_id
-      WHERE h.current_value_cents IS NOT NULL
+      WHERE h.current_value_cents IS NOT NULL AND h.quantity > 0
       ORDER BY (h.current_value_cents * h.quantity) DESC, s.name, i.number
       LIMIT ?
     `,
@@ -117,7 +118,7 @@ export async function getBiggestRecoveredMovers(
         changes.delta_cents AS deltaCents,
         changes.change_percent AS changePercent
       FROM changes
-      JOIN holdings h ON h.id = changes.holding_id AND h.valuation_epoch = changes.valuation_epoch
+      JOIN holdings h ON h.id = changes.holding_id AND h.valuation_epoch = changes.valuation_epoch AND h.quantity > 0
       JOIN variants v ON v.id = h.variant_id
       JOIN issues i ON i.id = v.issue_id
       JOIN series s ON s.id = i.series_id
@@ -164,7 +165,7 @@ export async function getRecentValuationChanges(
           ELSE ((history.price_cents - history.previous_price_cents) * 100.0 / history.previous_price_cents)
         END AS changePercent
       FROM history
-      JOIN holdings h ON h.id = history.holding_id AND h.valuation_epoch = history.valuation_epoch
+      JOIN holdings h ON h.id = history.holding_id AND h.valuation_epoch = history.valuation_epoch AND h.quantity > 0
       JOIN variants v ON v.id = h.variant_id
       JOIN issues i ON i.id = v.issue_id
       JOIN series s ON s.id = i.series_id

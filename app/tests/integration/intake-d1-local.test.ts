@@ -16,6 +16,12 @@ const { Miniflare, convertV4MiniflareOptions } = createRequire(
 )('miniflare');
 import { D1Database, type D1DatabaseLike } from '@/db/cloudflare/d1-database';
 import { saveIntake } from '@/features/intake/save';
+import { changeCopyArchive } from '@/features/collection/copy-archive';
+import { getEditableCopy } from '@/features/collection/copy-edit';
+import {
+  getEditableMetadata,
+  saveMetadata,
+} from '@/features/collection/metadata-edit';
 import {
   storeIntakeLookup,
   discoverZapCovers,
@@ -227,6 +233,81 @@ it('runs the real intake batches on local D1, including replay, reuse and quote 
       db,
     );
     expect(await editableBox(boxId, db)).toBeUndefined();
+    const purchase = (await getEditableCopy(1, db))!;
+    const history = await db.all(
+      'SELECT * FROM price_snapshots WHERE holding_id=1 ORDER BY id',
+    );
+    const remove = {
+      requestId: crypto.randomUUID(),
+      holdingId: 1,
+      expectedVersion: purchase.editVersion,
+      action: 'archive' as const,
+      confirmed: true,
+    };
+    await changeCopyArchive(remove, db);
+    await changeCopyArchive(remove, db);
+    expect((await getEditableCopy(1, db))?.quantity).toBe(0);
+    const restore = {
+      ...remove,
+      requestId: crypto.randomUUID(),
+      expectedVersion: purchase.editVersion + 1,
+      action: 'restore' as const,
+    };
+    await changeCopyArchive(restore, db);
+    await changeCopyArchive(restore, db);
+    expect((await getEditableCopy(1, db))?.quantity).toBe(purchase.quantity);
+    expect(
+      await db.all(
+        'SELECT * FROM price_snapshots WHERE holding_id=1 ORDER BY id',
+      ),
+    ).toEqual(history);
+    await saveSeries(
+      {
+        requestId: crypto.randomUUID(),
+        id: 1,
+        version: 1,
+        name: 'Alpha D1',
+        sortName: 'Alpha D1',
+        year: 2024,
+        status: 'ended',
+        providerMappings: { zap: '880011', comicVine: null },
+      },
+      db,
+    );
+    expect(
+      await db.get(
+        "SELECT external_id AS id FROM external_refs WHERE entity_type='series' AND entity_id=1 AND provider='zap'",
+      ),
+    ).toEqual({ id: '880011' });
+    expect(
+      await db.get(
+        "SELECT external_id AS id FROM external_refs WHERE entity_type='variant' AND entity_id=1 AND provider='zap'",
+      ),
+    ).toEqual({ id: '101' });
+    const metadata = (await getEditableMetadata(1, db))!;
+    await saveMetadata(
+      {
+        requestId: crypto.randomUUID(),
+        variantId: 1,
+        expectedVersion: metadata.editVersion,
+        variantName: metadata.variantName,
+        storyTitle: metadata.storyTitle,
+        firstAppearanceOf: metadata.firstAppearanceOf,
+        details: metadata.details,
+        publisherName: metadata.publisherName,
+        coverPriceCents: metadata.coverPriceCents,
+        credits: metadata.credits,
+        providerMappings: { zap: '880022', comicVine: '4000-9001-0' },
+      },
+      undefined,
+      db,
+    );
+    expect((await getEditableCopy(1, db))?.valueCents).toBeNull();
+    expect(
+      await db.all(
+        'SELECT * FROM price_snapshots WHERE holding_id=1 ORDER BY id',
+      ),
+    ).toEqual(history);
   } finally {
     await mf.dispose();
   }

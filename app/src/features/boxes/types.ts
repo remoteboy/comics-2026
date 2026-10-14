@@ -16,6 +16,7 @@ export interface BoxDetail extends BoxListItem {
 }
 
 export interface HoldingListItemWithSeries extends HoldingListItem {
+  seriesId: number;
   seriesName: string;
 }
 

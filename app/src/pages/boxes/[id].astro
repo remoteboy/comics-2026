@@ -5,6 +5,8 @@ import AppLayout from '@/components/AppLayout.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import StatCard from '@/components/StatCard.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import { database } from '@/db';
 import BoxHoldings from '@/features/boxes/components/BoxHoldings.astro';
 import { getBox, getBoxNavigation } from '@/features/boxes/repository';
 import { formatMoney } from '@/lib/format';
@@ -14,6 +16,24 @@ const id = Number(Astro.params.id);
 const [box, navigation] = await Promise.all([getBox(id), getBoxNavigation(id)]);
 if (!box) return Astro.redirect('/boxes');
 const title = box.label || `Box ${box.id}`;
+const seriesId = Number(Astro.url.searchParams.get('series'));
+const selectedSeries =
+  Number.isSafeInteger(seriesId) && seriesId > 0
+    ? await database().get<{ id: number; name: string }>(
+        'SELECT id,name FROM series WHERE id=?',
+        [seriesId],
+      )
+    : undefined;
+const holdings = selectedSeries
+  ? box.holdings.filter((copy) => copy.seriesId === seriesId)
+  : box.holdings;
+const boxUrl = (id: number) =>
+  `/boxes/${id}${selectedSeries ? `?series=${selectedSeries.id}` : ''}`;
+const value = holdings.reduce(
+  (sum, copy) => sum + (copy.valueCents ?? 0) * copy.quantity,
+  0,
+);
+const quantity = holdings.reduce((sum, copy) => sum + copy.quantity, 0);
 ---
 
 <AppLayout title={title}>
@@ -37,7 +57,7 @@ const title = box.label || `Box ${box.id}`;
       </a>
       {navigation.previousId && (
         <a
-          href={`/boxes/${navigation.previousId}`}
+          href={boxUrl(navigation.previousId)}
           aria-label={`Previous box, ${navigation.previousId}`}
           class="rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
         >
@@ -46,7 +66,7 @@ const title = box.label || `Box ${box.id}`;
       )}
       {navigation.nextId && (
         <a
-          href={`/boxes/${navigation.nextId}`}
+          href={boxUrl(navigation.nextId)}
           aria-label={`Next box, ${navigation.nextId}`}
           class="rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
         >
@@ -55,12 +75,27 @@ const title = box.label || `Box ${box.id}`;
       )}
     </div>
   </PageHeader>
+  {selectedSeries && (
+    <p class="mb-5 text-sm text-zinc-400">
+      Showing {selectedSeries.name} in this box.{' '}
+      <a href={`/boxes/${id}`} class="ml-2 underline">
+        Show all comics in this box
+      </a>
+    </p>
+  )}
 
   <section class="mb-8 grid gap-3 sm:grid-cols-3">
-    <StatCard label="Value" value={formatMoney(box.valueCents)} />
-    <StatCard label="Physical copies" value={String(box.copyCount)} />
-    <StatCard label="Holdings" value={String(box.holdingCount)} />
+    <StatCard label="Value" value={formatMoney(value)} />
+    <StatCard label="Physical copies" value={String(quantity)} />
+    <StatCard label="Purchase groups" value={String(holdings.length)} />
   </section>
 
-  <BoxHoldings boxes={boxes} holdings={box.holdings} />
+  {holdings.length ? (
+    <BoxHoldings boxes={boxes} holdings={holdings} />
+  ) : (
+    <EmptyState
+      title="No matching comics in this box"
+      description="Show all comics or try another box."
+    />
+  )}
 </AppLayout>

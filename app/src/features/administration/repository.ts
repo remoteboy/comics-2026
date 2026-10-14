@@ -42,6 +42,16 @@ export interface SeriesEdit {
   sortName: string | null;
   year: number | null;
   status: 'ongoing' | 'ended';
+  providerMappings?: { zap: string | null; comicVine: string | null };
+}
+export async function seriesProviderMappings(
+  id: number,
+  db: QueryDatabase = database(),
+) {
+  return db.all<{ provider: string; externalId: string }>(
+    "SELECT provider,external_id AS externalId FROM external_refs WHERE entity_type='series' AND entity_id=? AND provider IN('zap','comic_vine') ORDER BY provider,external_id",
+    [id],
+  );
 }
 async function replay(requestId: string, json: string, db: QueryDatabase) {
   const row = await db.get<{ id: number; input: string }>(
@@ -87,6 +97,33 @@ export async function saveSeries(
     throw new Error(
       'This series changed. Reload its latest details before saving.',
     );
+  const mappings = input.providerMappings;
+  if (
+    mappings &&
+    ((mappings.zap !== null && !/^[1-9]\d{0,15}$/.test(mappings.zap)) ||
+      (mappings.comicVine !== null &&
+        !/^4050-[1-9]\d{0,15}$/.test(mappings.comicVine)))
+  )
+    throw new Error(
+      'Enter a numeric Zap title ID and a Comic Vine volume ID such as 4050-12345, or leave blank to unlink.',
+    );
+  const previousMappings = mappings
+    ? await seriesProviderMappings(input.id, db)
+    : [];
+  const mappingClash =
+    "SELECT 1 FROM external_refs WHERE entity_type='series' AND entity_id<>? AND provider=? AND external_id=?";
+  if (mappings)
+    for (const [provider, externalId] of [
+      ['zap', mappings.zap],
+      ['comic_vine', mappings.comicVine],
+    ] as const)
+      if (
+        externalId &&
+        (await db.get(mappingClash, [input.id, provider, externalId]))
+      )
+        throw new Error(
+          'That provider title is already linked to another collection series. Open that series instead.',
+        );
   let name = data.name;
   let sortName = data.sortName;
   if (
@@ -109,17 +146,36 @@ export async function saveSeries(
       'Another series already uses that name and year. Open the correct series instead.',
     );
   const now = new Date().toISOString();
+  const guards: string[] = identityChanged ? [`NOT EXISTS(${clash})`] : [];
+  const guardParameters: (string | number | null)[] = identityChanged
+    ? [input.id, name, input.year]
+    : [];
+  if (mappings)
+    for (const [provider, externalId] of [
+      ['zap', mappings.zap],
+      ['comic_vine', mappings.comicVine],
+    ] as const) {
+      if (externalId) {
+        guards.push(`NOT EXISTS(${mappingClash})`);
+        guardParameters.push(input.id, provider, externalId);
+      }
+    }
+  const contentGuard = guards.length
+    ? `(SELECT CASE WHEN ${guards.join(' AND ')} THEN 1 END)`
+    : '1';
   const statements: MutationStatement[] = [
     {
-      sql: `INSERT INTO administration_changes(request_id,entity_type,entity_id,input_json,before_json,version_guard,content_guard,created_at) VALUES(?,'series',?,?,?,(SELECT 1 FROM series WHERE id=? AND edit_version=?),${identityChanged ? `(SELECT CASE WHEN NOT EXISTS(${clash}) THEN 1 END)` : '1'},?)`,
+      sql: `INSERT INTO administration_changes(request_id,entity_type,entity_id,input_json,before_json,version_guard,content_guard,created_at) VALUES(?,'series',?,?,?,(SELECT 1 FROM series WHERE id=? AND edit_version=?),${contentGuard},?)`,
       parameters: [
         input.requestId,
         input.id,
         json,
-        JSON.stringify(before),
+        JSON.stringify(
+          mappings ? { ...before, providerMappings: previousMappings } : before,
+        ),
         input.id,
         input.version,
-        ...(identityChanged ? [input.id, name, input.year] : []),
+        ...guardParameters,
         now,
       ],
     },
@@ -128,6 +184,28 @@ export async function saveSeries(
       parameters: [name, sortName, input.year, input.status, now, input.id],
     },
   ];
+  if (mappings) {
+    // Retain a stored slug when the external identity is unchanged; discard stale slugs after corrections.
+    for (const [provider, externalId] of [
+      ['zap', mappings.zap],
+      ['comic_vine', mappings.comicVine],
+    ] as const) {
+      statements.push({
+        sql: "DELETE FROM external_refs WHERE entity_type='series' AND entity_id=? AND provider=? AND external_id IS NOT ?",
+        parameters: [input.id, provider, externalId],
+      });
+      if (externalId)
+        statements.push({
+          sql: "INSERT OR IGNORE INTO external_refs(entity_type,entity_id,provider,external_id,created_at) VALUES('series',?,?,?,?)",
+          parameters: [input.id, provider, externalId, now],
+        });
+    }
+    if (!identityChanged)
+      statements.push({
+        sql: 'UPDATE variants SET edit_version=edit_version+1,updated_at=? WHERE issue_id IN(SELECT id FROM issues WHERE series_id=?)',
+        parameters: [now, input.id],
+      });
+  }
   if (identityChanged)
     statements.push(
       {

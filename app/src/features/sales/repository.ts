@@ -119,6 +119,7 @@ async function listSaleCandidateRows(
      AND zap.entity_id = v.id
      AND zap.provider = 'zap'
     LEFT JOIN sale_watch_state watch ON watch.holding_id = h.id
+    WHERE h.quantity > 0
     ORDER BY h.id
   `);
 }

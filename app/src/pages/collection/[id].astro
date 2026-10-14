@@ -6,44 +6,50 @@ import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import StatCard from '@/components/StatCard.astro';
+import { listSeriesRemovedCopies } from '@/features/collection/copy-archive';
+import { purchaseDetails } from '@/features/collection/purchase-details';
+import TitleAutocomplete from '@/components/TitleAutocomplete.astro';
 import HoldingCoverGrid from '@/features/collection/components/HoldingCoverGrid.astro';
 import HoldingList from '@/features/collection/components/HoldingList.astro';
 import {
   getSeries,
   listSeriesHoldings,
+  listSeriesBoxes,
 } from '@/features/collection/series.repository';
 import { formatMoney } from '@/lib/format';
 
 const boxes = await listBoxOptions();
 const id = Number(Astro.params.id);
-const query = Astro.url.searchParams.get('q')?.trim() ?? '';
+const query = Astro.url.searchParams.get('q')?.trim().slice(0, 200) ?? '';
 const view = Astro.url.searchParams.get('view') === 'list' ? 'list' : 'covers';
 
-const [series, holdings] = await Promise.all([
+const [series, holdings, seriesBoxes, allHoldings] = await Promise.all([
   getSeries(id),
   listSeriesHoldings(id, query),
+  listSeriesBoxes(id),
+  query ? listSeriesHoldings(id) : Promise.resolve(null),
 ]);
 
 if (!series) return Astro.redirect('/collection');
 
 const seriesId = series.id;
 const title = series.name;
+const removedCopies = await listSeriesRemovedCopies(id);
 
-const mostValuable = holdings.reduce<(typeof holdings)[number] | undefined>(
-  (best, holding) => {
-    const value = (holding.valueCents ?? 0) * holding.quantity;
-    const bestValue = best ? (best.valueCents ?? 0) * best.quantity : -1;
+const mostValuable = (allHoldings ?? holdings)
+  .filter((holding) => holding.quantity > 0 && holding.valueCents !== null)
+  .reduce<(typeof holdings)[number] | undefined>((best, holding) => {
+    const value = holding.valueCents ?? 0;
+    const bestValue = best ? (best.valueCents ?? 0) : -1;
 
     return value > bestValue ? holding : best;
-  },
-  undefined,
-);
+  }, undefined);
 
-function viewUrl(nextView: 'covers' | 'list'): string {
+function viewUrl(nextView: 'covers' | 'list', clear = false): string {
   const params = new URLSearchParams();
 
   if (nextView === 'list') params.set('view', 'list');
-  if (query) params.set('q', query);
+  if (query && !clear) params.set('q', query);
 
   const suffix = params.toString();
 
@@ -126,9 +132,7 @@ function viewUrl(nextView: 'covers' | 'list'): string {
       value={formatMoney(series.valueCents)}
       detail={
         mostValuable
-          ? `Top: #${mostValuable.issueNumber} · ${formatMoney(
-              (mostValuable.valueCents ?? 0) * mostValuable.quantity,
-            )}`
+          ? `Top per copy: ${mostValuable.issueType === 'annual' ? 'Annual ' : '#'}${mostValuable.issueNumber} · ${formatMoney(mostValuable.valueCents)}`
           : undefined
       }
     />
@@ -160,50 +164,217 @@ function viewUrl(nextView: 'covers' | 'list'): string {
     />
   </section>
 
-  <form method="get" class="mb-6 flex flex-col gap-2 sm:flex-row">
+  {seriesBoxes.length > 0 && (
+    <nav
+      aria-label="Boxes containing this series"
+      class="mb-6 flex flex-wrap gap-2 text-sm"
+    >
+      {seriesBoxes.map((box) => (
+        <a
+          href={`/boxes/${box.id}?series=${id}`}
+          class="rounded-lg border border-zinc-800 px-3 py-2 text-zinc-300 hover:text-white"
+        >
+          Box {box.id}
+          {box.label ? ` · ${box.label}` : ''} · {box.copies}{' '}
+          {box.copies === 1 ? 'copy' : 'copies'}
+        </a>
+      ))}
+    </nav>
+  )}
+
+  {removedCopies.length > 0 && (
+    <details
+      id="removed-copies"
+      class="mb-6 rounded-xl border border-zinc-800 p-5"
+    >
+      <summary class="cursor-pointer font-semibold text-zinc-300">
+        Removed copies (
+        {removedCopies.reduce((sum, copy) => sum + copy.quantity, 0)})
+      </summary>
+      <div class="mt-4 space-y-4">
+        {removedCopies.map((copy) => (
+          <div class="text-sm text-zinc-400">
+            <a
+              class="font-semibold text-zinc-200 underline"
+              href={`/comics/${copy.variantId}?copy=${copy.holdingId}`}
+            >
+              {copy.type === 'annual' ? 'Annual ' : '#'}
+              {copy.number} · {copy.cover || 'Regular cover'}
+            </a>
+            <p class="mt-1">
+              {copy.quantity} {copy.quantity === 1 ? 'copy' : 'copies'} ·{' '}
+              {purchaseDetails(copy)}
+            </p>
+            <a
+              href={`/copies/${copy.holdingId}/remove`}
+              class="mt-2 inline-block underline"
+            >
+              Restore copies
+            </a>
+          </div>
+        ))}
+      </div>
+    </details>
+  )}
+  <form
+    method="get"
+    data-series-filter
+    class="mb-6 flex flex-col gap-2 sm:flex-row"
+  >
     {view === 'list' && <input type="hidden" name="view" value="list" />}
 
-    <label class="min-w-0 flex-1">
-      <span class="sr-only">Filter this series</span>
-      <input
-        type="search"
-        name="q"
-        value={query}
-        placeholder="Find issue, cover, creator or significance…"
-        class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
-      />
-    </label>
+    <div class="min-w-0 flex-1">
+      <TitleAutocomplete
+        id="series-comic-search"
+        endpoint={`/api/search/issues?series=${id}`}
+        scope="issues"
+        minChars={1}
+      >
+        <label>
+          <span class="sr-only">Filter this series</span>
+          <input
+            type="search"
+            name="q"
+            maxlength="200"
+            value={query}
+            placeholder="Find issue, cover, creator or significance…"
+            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+          />
+        </label>
+      </TitleAutocomplete>
+    </div>
 
     <div class="flex gap-2">
-      <button class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white">
+      <button
+        data-series-apply
+        class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white"
+      >
         Filter
       </button>
 
-      {query && (
-        <a
-          href={viewUrl(view)}
-          class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white"
-        >
-          Clear
-        </a>
-      )}
+      <a
+        href={viewUrl(view, true)}
+        data-series-clear
+        hidden={!query}
+        class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white"
+      >
+        Clear
+      </a>
     </div>
   </form>
-
-  {holdings.length ? (
-    view === 'list' ? (
-      <HoldingList boxes={boxes} holdings={holdings} seriesName={series.name} />
+  <p
+    data-series-filter-message
+    aria-live="polite"
+    class="mb-3 text-sm text-zinc-500"
+  ></p>
+  <div data-series-results>
+    {holdings.length ? (
+      view === 'list' ? (
+        <HoldingList
+          boxes={boxes}
+          holdings={holdings}
+          seriesName={series.name}
+        />
+      ) : (
+        <HoldingCoverGrid
+          boxes={boxes}
+          holdings={holdings}
+          seriesName={series.name}
+        />
+      )
     ) : (
-      <HoldingCoverGrid
-        boxes={boxes}
-        holdings={holdings}
-        seriesName={series.name}
+      <EmptyState
+        title="No matching comics"
+        description="Try a broader search within this series."
       />
-    )
-  ) : (
-    <EmptyState
-      title="No matching comics"
-      description="Try a broader search within this series."
-    />
-  )}
+    )}
+  </div>
 </AppLayout>
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-series-filter]');
+  const input = form?.querySelector<HTMLInputElement>('[name="q"]');
+  const results = document.querySelector<HTMLElement>('[data-series-results]');
+  const message = document.querySelector<HTMLElement>(
+    '[data-series-filter-message]',
+  );
+  const clear = form?.querySelector<HTMLAnchorElement>('[data-series-clear]');
+  if (form && input && results && message && clear) {
+    let timer: ReturnType<typeof setTimeout>;
+    let controller: AbortController | undefined;
+    let version = 0;
+    let composing = false;
+    const update = () => {
+      clearTimeout(timer);
+      controller?.abort();
+      const requestVersion = ++version;
+      if (composing) return;
+      const q = input.value.trim();
+      clear.hidden = !q;
+      const url = new URL(location.href);
+      if (q) url.searchParams.set('q', q);
+      else url.searchParams.delete('q');
+      url.searchParams.delete('moved');
+      url.searchParams.delete('seriesSaved');
+      message.textContent = 'Updating comics…';
+      timer = setTimeout(async () => {
+        controller = new AbortController();
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) throw new Error();
+          const html = await response.text();
+          if (requestVersion !== version) return;
+          const next = new DOMParser()
+            .parseFromString(html, 'text/html')
+            .querySelector('[data-series-results]');
+          if (!next) throw new Error();
+          results.innerHTML = next.innerHTML;
+          history.replaceState(null, '', url);
+          for (const link of document.querySelectorAll<HTMLAnchorElement>(
+            'a[aria-current="page"],a[href]',
+          )) {
+            const target = new URL(link.href, location.href);
+            if (
+              target.pathname === location.pathname &&
+              ['List', 'Covers'].includes(link.textContent?.trim() ?? '')
+            ) {
+              if (q) target.searchParams.set('q', q);
+              else target.searchParams.delete('q');
+              link.href = target.toString();
+            }
+          }
+          message.textContent = q
+            ? `Showing comics matching “${q}”.`
+            : 'Showing all comics in this series.';
+        } catch (cause) {
+          if (
+            requestVersion !== version ||
+            (cause instanceof DOMException && cause.name === 'AbortError')
+          )
+            return;
+          message.textContent =
+            'Live filtering is unavailable. Use Filter to try again.';
+          form.querySelector<HTMLButtonElement>('[data-series-apply]')!.hidden =
+            false;
+        }
+      }, 250);
+    };
+    form.querySelector<HTMLButtonElement>('[data-series-apply]')!.hidden = true;
+    input.addEventListener('input', update);
+    input.addEventListener('compositionstart', () => {
+      composing = true;
+      clearTimeout(timer);
+      controller?.abort();
+      version++;
+    });
+    input.addEventListener('compositionend', () => {
+      composing = false;
+      update();
+    });
+    clear.addEventListener('click', (event) => {
+      event.preventDefault();
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+    });
+  }
+</script>

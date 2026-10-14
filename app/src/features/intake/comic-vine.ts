@@ -6,6 +6,7 @@ import {
 import type { ProviderIssueType } from '@/providers/types';
 import { IntakeLookupError, issueNumber } from './catalog';
 import type { IntakeCover, IntakeTitle } from './types';
+import { readableNotes } from '@/features/collection/readable-notes';
 
 function text(value: string): string {
   return value
@@ -156,6 +157,36 @@ export class ComicVineIntakeClient {
         : [],
     );
   }
+  async issueMetadata(
+    coverId: string,
+    number: string,
+    type: ProviderIssueType,
+    seriesId?: string,
+  ) {
+    const match = coverId.match(/^(4000-\d+)(?:-\d+)?$/);
+    if (!match)
+      throw new IntakeLookupError(
+        'This cover has an invalid Comic Vine match.',
+      );
+    const response = await this.api(`/api/issue/${match[1]}/`);
+    const issue = normalizeComicVineIssue({
+      response: response.results,
+      remote_id: coverId,
+      type,
+    });
+    if (
+      !issue ||
+      String(response.results.id) !== match[1].slice(5) ||
+      issue.externalId !== match[1] ||
+      issue.number.trim().toLocaleLowerCase() !==
+        number.trim().toLocaleLowerCase() ||
+      (seriesId && issue.seriesExternalId !== seriesId)
+    )
+      throw new IntakeLookupError(
+        'Comic Vine returned a different issue or title. Your edits are unchanged.',
+      );
+    return issue;
+  }
   async discoverCovers(
     title: IntakeTitle,
     number: string,
@@ -241,7 +272,7 @@ export class ComicVineIntakeClient {
             'Comic Vine cover details could not be read.',
           );
         // Description HTML is treated as plain text in the collection, never rendered as markup.
-        issue.description = issue.description ? text(issue.description) : null;
+        issue.description = readableNotes(issue.description);
         covers.push({
           ...gallery,
           slug: externalId,

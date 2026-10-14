@@ -141,6 +141,8 @@ export async function saveCopyEdit(
   }
   const source = await getEditableCopy(input.holdingId, db);
   if (!source) throw new Error('This copy no longer exists.');
+  if (source.quantity < 1)
+    throw new Error('Restore these removed copies before editing them.');
   if (source.editVersion !== input.expectedVersion)
     throw new CopyEditConflict();
   const cover = await db.get<{ id: number }>(

@@ -68,4 +68,16 @@ describe('boxes repository', () => {
       nextId: null,
     });
   });
+  it('honours custom series sort names and falls back to display names', async () => {
+    await db.run("UPDATE series SET sort_name='A Weird Tales' WHERE id=2");
+    expect((await getBox(1, db))?.holdings.map((h) => h.seriesName)).toEqual([
+      'Weird Tales',
+      'Alpha Adventures',
+    ]);
+    await db.run("UPDATE series SET sort_name='' WHERE id=2");
+    expect((await getBox(1, db))?.holdings.map((h) => h.seriesName)).toEqual([
+      'Alpha Adventures',
+      'Weird Tales',
+    ]);
+  });
 });

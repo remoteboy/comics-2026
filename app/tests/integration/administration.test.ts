@@ -8,6 +8,7 @@ import {
   editableBox,
   saveSeries,
   saveBox,
+  seriesProviderMappings,
   type SeriesEdit,
   type BoxEdit,
 } from '@/features/administration/repository';
@@ -42,6 +43,82 @@ describe('series and box administration', () => {
     label: 'New box',
     type: 'short',
     ...changes,
+  });
+  it('corrects or unlinks title provider mappings without changing covers, purchases or history', async () => {
+    const holdings = await db.all('SELECT * FROM holdings ORDER BY id');
+    const history = await db.all('SELECT * FROM price_snapshots ORDER BY id');
+    const coverRefs = await db.all(
+      "SELECT * FROM external_refs WHERE entity_type='variant' ORDER BY id",
+    );
+    const request = seriesInput({
+      providerMappings: { zap: '9900', comicVine: '4050-12345' },
+    });
+    await saveSeries(request, db);
+    await saveSeries(request, db);
+    expect(await seriesProviderMappings(1, db)).toEqual([
+      { provider: 'comic_vine', externalId: '4050-12345' },
+      { provider: 'zap', externalId: '9900' },
+    ]);
+    expect(await db.all('SELECT * FROM holdings ORDER BY id')).toEqual(
+      holdings,
+    );
+    expect(await db.all('SELECT * FROM price_snapshots ORDER BY id')).toEqual(
+      history,
+    );
+    expect(
+      await db.all(
+        "SELECT * FROM external_refs WHERE entity_type='variant' ORDER BY id",
+      ),
+    ).toEqual(coverRefs);
+    await saveSeries(
+      seriesInput({
+        version: 1,
+        providerMappings: { zap: null, comicVine: '4050-12345' },
+      }),
+      db,
+    );
+    expect(await seriesProviderMappings(1, db)).toEqual([
+      { provider: 'comic_vine', externalId: '4050-12345' },
+    ]);
+  });
+  it('refuses invalid and already-used provider mappings', async () => {
+    await expect(
+      saveSeries(
+        seriesInput({
+          providerMappings: { zap: 'not-an-id', comicVine: null },
+        }),
+        db,
+      ),
+    ).rejects.toThrow('numeric Zap');
+    await db.run(
+      "INSERT INTO external_refs(entity_type,entity_id,provider,external_id) VALUES('series',2,'zap','9900')",
+    );
+    await expect(
+      saveSeries(
+        seriesInput({ providerMappings: { zap: '9900', comicVine: null } }),
+        db,
+      ),
+    ).rejects.toThrow('another collection series');
+    expect((await editableSeries(1, db))?.version).toBe(0);
+  });
+  it('rolls back mapping changes if the provider identity is claimed during save', async () => {
+    const original = db.batch.bind(db);
+    db.batch = async (statements) => {
+      await db.run(
+        "INSERT INTO external_refs(entity_type,entity_id,provider,external_id) VALUES('series',2,'zap','9900')",
+      );
+      return original(statements);
+    };
+    await expect(
+      saveSeries(
+        seriesInput({ providerMappings: { zap: '9900', comicVine: null } }),
+        db,
+      ),
+    ).rejects.toThrow('changed');
+    expect((await editableSeries(1, db))?.version).toBe(0);
+    expect(await seriesProviderMappings(1, db)).toEqual([
+      { provider: 'zap', externalId: 'series-101' },
+    ]);
   });
   it('edits series status and sort order without moving copies or changing prices', async () => {
     const holdings = await db.all('SELECT * FROM holdings ORDER BY id');

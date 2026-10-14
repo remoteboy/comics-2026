@@ -77,6 +77,7 @@ export async function listZapValuationTargets(
       ON zap.entity_type = 'variant'
      AND zap.entity_id = h.variant_id
      AND zap.provider = 'zap'
+    WHERE h.quantity > 0
     ORDER BY h.id
   `);
 }
@@ -102,7 +103,7 @@ export async function listZapValuationBackfillTargets(
         LEFT JOIN provider_price_checks checks
           ON checks.provider = 'zap'
          AND checks.provider_variant_id = zap.external_id
-        WHERE (cv.holding_id IS NULL OR cv.provider != 'zap')
+        WHERE h.quantity > 0 AND (cv.holding_id IS NULL OR cv.provider != 'zap')
           AND (checks.status IS NULL OR checks.status = 'error' OR (cv.provider = 'pending' AND julianday(cv.refreshed_at) > julianday(checks.checked_at)))
         GROUP BY zap.external_id
         ORDER BY retry_rank, missing_rank, first_holding_id
@@ -120,7 +121,7 @@ export async function listZapValuationBackfillTargets(
         ON zap.entity_type = 'variant'
        AND zap.provider = 'zap'
        AND zap.external_id = pending.zap_variant_id
-      JOIN holdings h ON h.variant_id = zap.entity_id
+      JOIN holdings h ON h.variant_id = zap.entity_id AND h.quantity > 0
       ORDER BY pending.first_holding_id, h.id
     `,
     [limit],
@@ -143,6 +144,7 @@ export async function getValuationBackfillProgress(
        AND zap.entity_id = h.variant_id
        AND zap.provider = 'zap'
       LEFT JOIN current_valuations cv ON cv.holding_id = h.id
+      WHERE h.quantity > 0
     ),
     variant_state AS (
       SELECT
@@ -183,7 +185,7 @@ export async function getValuationBackfillProgress(
       (
         SELECT COUNT(*)
         FROM holdings h
-        WHERE NOT EXISTS (
+        WHERE h.quantity > 0 AND NOT EXISTS (
           SELECT 1
           FROM external_refs zap
           WHERE zap.entity_type = 'variant'
@@ -240,6 +242,7 @@ export async function getValuationHealthSummary(
       MAX(CASE WHEN cv.provider = 'zap' THEN cv.refreshed_at END) AS latestRefreshAt
     FROM holdings h
     LEFT JOIN current_valuations cv ON cv.holding_id = h.id
+    WHERE h.quantity > 0
   `);
 
   if (!row) throw new Error('Unable to load valuation health.');
@@ -295,7 +298,7 @@ export async function listValuationMovements(
       JOIN variants v ON v.id = h.variant_id
       JOIN issues i ON i.id = v.issue_id
       JOIN series s ON s.id = i.series_id
-      WHERE cv.provider = 'zap' AND cv.price_cents IS NOT NULL
+      WHERE h.quantity > 0 AND cv.provider = 'zap' AND cv.price_cents IS NOT NULL
       ORDER BY ABS(
         cv.price_cents - COALESCE(
           (

@@ -28,6 +28,11 @@ const valuationsByHolding = new Map(
     description="Copies with the same cover, grade and box are shown together."
   />
   <div class="space-y-3">
+    {!holdings.length && (
+      <p class="text-sm text-zinc-400">
+        You currently own no copies of this cover.
+      </p>
+    )}
     {groups.map((group) => (
       <CopyGroupCard
         group={group}

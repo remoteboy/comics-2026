@@ -137,7 +137,7 @@ const {
           items = data.items.filter(
             (item: { href: string }) =>
               typeof item.href === 'string' &&
-              /^\/(?:collection\/\d+|creators\/\d+|publishers\/\d+|boxes\/\d+|intake\?)/.test(
+              /^\/(?:collection\/\d+|comics\/\d+|creators\/\d+|publishers\/\d+|boxes\/\d+|intake\?)/.test(
                 item.href,
               ),
           );

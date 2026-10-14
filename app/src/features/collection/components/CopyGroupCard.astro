@@ -126,6 +126,14 @@ const summary =
       >
         Add another copy
       </a>
+      {group.copies.length === 1 && (
+        <a
+          href={`/copies/${holding.holdingId}/remove`}
+          class="mt-2 block text-sm text-zinc-400 underline"
+        >
+          Remove {holding.quantity > 1 ? 'copies' : 'copy'}
+        </a>
+      )}
     </div>
     {group.copies.length === 1 && (
       <div>
@@ -177,6 +185,9 @@ const summary =
               </a>
               <a href={`/sales/${copy.holdingId}`} class="underline">
                 Sale review
+              </a>
+              <a href={`/copies/${copy.holdingId}/remove`} class="underline">
+                Remove {labels.get(copy.holdingId)?.toLowerCase()}
               </a>
             </div>
           </div>

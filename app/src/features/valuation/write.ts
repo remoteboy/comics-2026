@@ -10,7 +10,7 @@ export function liveValuationStatements(
   const statements: MutationStatement[] = [
     {
       sql: `UPDATE holdings SET current_value_cents = ?, updated_at = ?, edit_version = edit_version + 1
-      WHERE id = ? AND edit_version = ? AND grade_tenths = ?
+      WHERE id = ? AND edit_version = ? AND grade_tenths = ? AND quantity > 0
         AND EXISTS (SELECT 1 FROM external_refs er WHERE er.entity_type = 'variant'
           AND er.entity_id = holdings.variant_id AND er.provider = 'zap' AND er.external_id = ?)`,
       parameters: [

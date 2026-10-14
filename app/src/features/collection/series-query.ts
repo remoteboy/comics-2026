@@ -86,7 +86,7 @@ export function seriesWhere(options: SeriesListOptions): {
       FROM issues hi
       JOIN variants hv ON hv.issue_id = hi.id
       JOIN holdings h ON h.variant_id = hv.id
-      WHERE hi.series_id = s.id AND ${healthConditions[health]}
+      WHERE hi.series_id = s.id AND h.quantity > 0 AND ${healthConditions[health]}
     )`);
   }
 

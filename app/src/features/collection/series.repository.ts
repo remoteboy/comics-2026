@@ -42,7 +42,7 @@ export async function listSeries(
       LEFT JOIN issues i ON i.series_id = s.id
       LEFT JOIN variants v ON v.issue_id = i.id
       LEFT JOIN publishers p ON p.id = v.publisher_id
-      LEFT JOIN holdings h ON h.variant_id = v.id
+      LEFT JOIN holdings h ON h.variant_id = v.id AND h.quantity > 0
       ${where}
       GROUP BY s.id
       ORDER BY ${sort}
@@ -85,7 +85,7 @@ export async function getSeries(
       LEFT JOIN issues i ON i.series_id = s.id
       LEFT JOIN variants v ON v.issue_id = i.id
       LEFT JOIN publishers p ON p.id = v.publisher_id
-      LEFT JOIN holdings h ON h.variant_id = v.id
+      LEFT JOIN holdings h ON h.variant_id = v.id AND h.quantity > 0
       WHERE s.id = ?
       GROUP BY s.id
     `,
@@ -106,6 +106,7 @@ export async function listSeriesHoldings(
   const filter = hasQuery
     ? `AND (
         i.number LIKE ? COLLATE NOCASE
+        OR (CASE WHEN i.type='annual' THEN 'Annual ' ELSE 'Issue ' END || i.number) LIKE ? COLLATE NOCASE
         OR v.name LIKE ? COLLATE NOCASE
         OR COALESCE(v.story_title, '') LIKE ? COLLATE NOCASE
         OR COALESCE(v.first_appearance_of, '') LIKE ? COLLATE NOCASE
@@ -118,7 +119,7 @@ export async function listSeriesHoldings(
       )`
     : '';
   const parameters = hasQuery
-    ? [seriesId, search, search, search, search, search]
+    ? [seriesId, search, search, search, search, search, search]
     : [seriesId];
 
   return db.all<HoldingListItem>(
@@ -141,7 +142,7 @@ export async function listSeriesHoldings(
       FROM issues i
       JOIN variants v ON v.issue_id = i.id
       JOIN holdings h ON h.variant_id = v.id
-      WHERE i.series_id = ?
+      WHERE i.series_id = ? AND h.quantity > 0
       ${filter}
       ORDER BY
         CASE WHEN i.number GLOB '[0-9]*' THEN CAST(i.number AS REAL) ELSE 999999 END,
@@ -150,5 +151,18 @@ export async function listSeriesHoldings(
         h.id
     `,
     parameters,
+  );
+}
+
+export async function listSeriesBoxes(
+  seriesId: number,
+  db: QueryDatabase = database(),
+) {
+  return db.all<{ id: number; label: string | null; copies: number }>(
+    `SELECT b.id,b.label,SUM(h.quantity) AS copies FROM boxes b
+    JOIN holdings h ON h.box_id=b.id JOIN variants v ON v.id=h.variant_id
+    JOIN issues i ON i.id=v.issue_id WHERE i.series_id=? AND h.quantity>0
+    GROUP BY b.id ORDER BY b.id`,
+    [seriesId],
   );
 }

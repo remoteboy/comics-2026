@@ -58,6 +58,70 @@ describe('collection management writes', () => {
     db = createTestDatabase();
   });
   afterEach(() => db.close());
+  it('corrects cover provider matches without carrying old prices into the new comparison period', async () => {
+    const history = await listPriceHistory(1, db);
+    const request = input({
+      variantName: 'Regular Cover',
+      providerMappings: { zap: '880011', comicVine: '4000-9001-0' },
+    });
+    await saveMetadata(request, undefined, db);
+    await saveMetadata(request, undefined, db);
+    expect(
+      await db.get(
+        "SELECT external_id AS id FROM external_refs WHERE entity_type='variant' AND entity_id=1 AND provider='zap'",
+      ),
+    ).toEqual({ id: '880011' });
+    expect(await getEditableCopy(1, db)).toMatchObject({
+      quantity: 2,
+      purchasePriceCents: 400,
+      valueCents: null,
+      valuationEpoch: 1,
+      editVersion: 1,
+    });
+    expect(await getCurrentValuation(1, db)).toMatchObject({
+      provider: 'pending',
+      priceCents: null,
+    });
+    expect(await listPriceHistory(1, db)).toEqual(history);
+  });
+  it('leaves prices intact for an unchanged Zap match and rejects a duplicate cover mapping', async () => {
+    await saveMetadata(
+      input({ providerMappings: { zap: '101', comicVine: '4000-9001-1' } }),
+      undefined,
+      db,
+    );
+    expect((await getEditableCopy(1, db))?.valueCents).toBe(1000);
+    await expect(
+      saveMetadata(
+        input({
+          expectedVersion: 1,
+          providerMappings: { zap: '205', comicVine: null },
+        }),
+        undefined,
+        db,
+      ),
+    ).rejects.toThrow('another comic');
+    expect((await getEditableMetadata(1, db))?.editVersion).toBe(1);
+  });
+  it('retains a migrated current estimate even when it has no historical snapshot', async () => {
+    await db.run('DELETE FROM price_snapshots WHERE holding_id=1');
+    await saveMetadata(
+      input({
+        variantName: 'Regular Cover',
+        providerMappings: { zap: '880011', comicVine: '4000-9001-0' },
+      }),
+      undefined,
+      db,
+    );
+    expect(await listPriceHistory(1, db)).toEqual([
+      expect.objectContaining({
+        priceCents: 1000,
+        valuationEpoch: 0,
+        variantId: 1,
+      }),
+    ]);
+    expect((await getEditableCopy(1, db))?.valuationEpoch).toBe(1);
+  });
 
   it('moves separate purchases together without changing quantity, purchase details or valuations', async () => {
     await db.run(

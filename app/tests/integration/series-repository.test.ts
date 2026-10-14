@@ -21,6 +21,18 @@ afterEach(() => {
 });
 
 describe('series repository', () => {
+  it('finds annuals by their displayed issue type', async () => {
+    await db.run('INSERT INTO holdings(variant_id,quantity) VALUES(6,1)');
+    expect(
+      (await listSeriesHoldings(3, 'annual', db)).map((copy) => copy.variantId),
+    ).toEqual([6]);
+    expect(
+      (await listSeriesHoldings(3, 'Annual 1', db)).map(
+        (copy) => copy.variantId,
+      ),
+    ).toEqual([6]);
+    expect(await listSeriesHoldings(1, 'annual', db)).toEqual([]);
+  });
   it('lists series with aggregate collection values', async () => {
     const result = await listSeries({ query: '', page: 1 }, db);
 

@@ -43,7 +43,7 @@ export async function listBoxes(
         COALESCE(SUM(h.quantity), 0) AS copyCount,
         COALESCE(SUM(COALESCE(h.current_value_cents, 0) * h.quantity), 0) AS valueCents
       FROM boxes b
-      LEFT JOIN holdings h ON h.box_id = b.id
+      LEFT JOIN holdings h ON h.box_id = b.id AND h.quantity > 0
       ${where}
       GROUP BY b.id
       ORDER BY b.id
@@ -66,7 +66,7 @@ export async function getBox(
         COALESCE(SUM(h.quantity), 0) AS copyCount,
         COALESCE(SUM(COALESCE(h.current_value_cents, 0) * h.quantity), 0) AS valueCents
       FROM boxes b
-      LEFT JOIN holdings h ON h.box_id = b.id
+      LEFT JOIN holdings h ON h.box_id = b.id AND h.quantity > 0
       WHERE b.id = ?
       GROUP BY b.id
     `,
@@ -82,6 +82,7 @@ export async function getBox(
         h.edit_version AS editVersion,
         v.id AS variantId,
         s.name AS seriesName,
+        s.id AS seriesId,
         i.number AS issueNumber,
         i.type AS issueType,
         v.name AS variantName,
@@ -97,8 +98,8 @@ export async function getBox(
       JOIN variants v ON v.id = h.variant_id
       JOIN issues i ON i.id = v.issue_id
       JOIN series s ON s.id = i.series_id
-      WHERE h.box_id = ?
-      ORDER BY s.name COLLATE NOCASE,
+      WHERE h.box_id = ? AND h.quantity > 0
+      ORDER BY COALESCE(NULLIF(s.sort_name, ''), s.name) COLLATE NOCASE,
         CASE WHEN i.number GLOB '[0-9]*' THEN CAST(i.number AS REAL) ELSE 999999 END,
         i.number COLLATE NOCASE,
         v.name COLLATE NOCASE

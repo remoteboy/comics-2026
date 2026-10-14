@@ -1,9 +1,17 @@
 import { catalogIdentitySql } from '@/features/catalog/repository';
 import { database } from '@/db';
-import type { MutationDatabase, MutationStatement } from '@/db/database';
+import type {
+  MutationDatabase,
+  MutationStatement,
+  QueryDatabase,
+} from '@/db/database';
 import { coverStorage } from '@/covers/runtime';
 import type { CoverStorage, UploadedCover } from '@/covers/upload';
-import { getVariant, listVariantCredits } from './variant.repository';
+import {
+  getVariant,
+  listVariantCredits,
+  listVariantExternalReferences,
+} from './variant.repository';
 import { formInteger, formText, validRequestId } from './write-form';
 
 export class MetadataEditConflict extends Error {
@@ -24,10 +32,11 @@ export interface MetadataEditInput {
   publisherName: string | null;
   coverPriceCents: number | null;
   credits: { name: string; role: string | null }[];
+  providerMappings?: { zap: string | null; comicVine: string | null };
 }
 export async function getEditableMetadata(
   id: number,
-  db: MutationDatabase = database(),
+  db: QueryDatabase = database(),
 ) {
   const variant = await getVariant(id, db);
   if (!variant) return undefined;
@@ -80,6 +89,14 @@ export function metadataFromForm(
     publisherName: text('publisherName', 500),
     coverPriceCents: cents,
     credits,
+    ...(data.get('changeProviderMappings') === 'yes'
+      ? {
+          providerMappings: {
+            zap: formText(data, 'zapId') || null,
+            comicVine: formText(data, 'comicVineId') || null,
+          },
+        }
+      : {}),
   };
 }
 export async function saveMetadata(
@@ -152,24 +169,105 @@ export async function saveMetadata(
   const before = await getEditableMetadata(input.variantId, db);
   if (!before || before.editVersion !== input.expectedVersion)
     throw new MetadataEditConflict();
+  const mappings = input.providerMappings;
+  const refs = mappings
+    ? await listVariantExternalReferences(input.variantId, db)
+    : [];
+  if (
+    mappings &&
+    ((mappings.zap !== null && !/^[1-9]\d{0,15}$/.test(mappings.zap)) ||
+      (mappings.comicVine !== null &&
+        !/^4000-[1-9]\d{0,15}(?:-\d{1,6})?$/.test(mappings.comicVine)))
+  )
+    throw new Error(
+      'Enter a numeric Zap cover ID and a Comic Vine issue ID such as 4000-12345 or 4000-12345-0. Leave blank to unlink.',
+    );
+  const mappingClash =
+    "SELECT 1 FROM external_refs WHERE entity_type='variant' AND entity_id<>? AND provider=? AND external_id=?";
+  const guards: string[] = [];
+  const guardParameters: (string | number)[] = [];
+  if (mappings)
+    for (const [provider, externalId] of [
+      ['zap', mappings.zap],
+      ['comic_vine', mappings.comicVine],
+    ] as const) {
+      if (externalId) {
+        if (await db.get(mappingClash, [input.variantId, provider, externalId]))
+          throw new Error(
+            'That provider cover is already linked to another comic. Choose the matching cover instead.',
+          );
+        guards.push(`NOT EXISTS(${mappingClash})`);
+        guardParameters.push(input.variantId, provider, externalId);
+      }
+    }
+  const oldZapIds = refs
+    .filter((ref) => ref.provider === 'zap')
+    .map((ref) => ref.externalId);
+  const zapChanged =
+    !!mappings &&
+    (oldZapIds.length !== (mappings.zap ? 1 : 0) ||
+      oldZapIds[0] !== (mappings.zap ?? undefined));
   const now = new Date().toISOString();
   const imageKey = cover
     ? `uploaded-${crypto.randomUUID()}.${cover.extension}`
     : before.imageKey;
   const statements: MutationStatement[] = [
     {
-      sql: 'INSERT INTO comic_metadata_edits(request_id, variant_id, expected_version, input_json, before_json, created_at) VALUES (?, ?, (SELECT edit_version FROM variants WHERE id = ? AND edit_version = ?), ?, ?, ?)',
+      sql: `INSERT INTO comic_metadata_edits(request_id, variant_id, expected_version, input_json, before_json, created_at) VALUES (?, ?, (SELECT edit_version FROM variants WHERE id = ? AND edit_version = ?${guards.length ? ` AND ${guards.join(' AND ')}` : ''}), ?, ?, ?)`,
       parameters: [
         input.requestId,
         input.variantId,
         input.variantId,
         input.expectedVersion,
+        ...guardParameters,
         inputJson,
-        JSON.stringify(before),
+        JSON.stringify(
+          mappings ? { ...before, externalReferences: refs } : before,
+        ),
         now,
       ],
     },
   ];
+  if (mappings) {
+    for (const [provider, externalId] of [
+      ['zap', mappings.zap],
+      ['comic_vine', mappings.comicVine],
+    ] as const) {
+      statements.push({
+        sql: "DELETE FROM external_refs WHERE entity_type='variant' AND entity_id=? AND provider=? AND external_id IS NOT ?",
+        parameters: [input.variantId, provider, externalId],
+      });
+      if (externalId)
+        statements.push({
+          sql: "INSERT OR IGNORE INTO external_refs(entity_type,entity_id,provider,external_id,created_at) VALUES('variant',?,?,?,?)",
+          parameters: [input.variantId, provider, externalId, now],
+        });
+    }
+    if (zapChanged)
+      statements.push(
+        {
+          sql: `INSERT INTO price_snapshots(holding_id,provider,grade_tenths,price_cents,observed_at,valuation_epoch,variant_id)
+            SELECT h.id,COALESCE(cv.provider,'manual'),h.grade_tenths,h.current_value_cents,COALESCE(cv.observed_at,cv.refreshed_at,?),h.valuation_epoch,h.variant_id
+            FROM holdings h LEFT JOIN current_valuations cv ON cv.holding_id=h.id
+            WHERE h.variant_id=? AND h.current_value_cents IS NOT NULL AND NOT EXISTS(
+              SELECT 1 FROM price_snapshots ps WHERE ps.holding_id=h.id AND ps.valuation_epoch=h.valuation_epoch AND ps.grade_tenths IS h.grade_tenths AND ps.price_cents=h.current_value_cents)`,
+          parameters: [now, input.variantId],
+        },
+        {
+          sql: 'UPDATE holdings SET current_value_cents=NULL,valuation_epoch=valuation_epoch+1,edit_version=edit_version+1,updated_at=? WHERE variant_id=?',
+          parameters: [now, input.variantId],
+        },
+        {
+          sql: 'UPDATE current_valuations SET provider=?,provider_variant_id=?,price_cents=NULL,source_price_cents=NULL,condition_percentage=NULL,observed_at=NULL,sync_run_id=NULL,refreshed_at=? WHERE holding_id IN(SELECT id FROM holdings WHERE variant_id=?)',
+          parameters: [
+            mappings.zap ? 'pending' : 'unknown',
+            mappings.zap,
+            now,
+            input.variantId,
+          ],
+        },
+      );
+  }
   if (input.publisherName)
     statements.push({
       sql: `INSERT INTO publishers(name, created_at, updated_at) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 WHERE (${catalogIdentitySql('publisher')}) IS NOT NULL)`,
@@ -231,6 +329,18 @@ export async function saveMetadata(
     const latest = await getEditableMetadata(input.variantId, db);
     if (!latest || latest.editVersion !== input.expectedVersion)
       throw new MetadataEditConflict();
+    if (mappings)
+      for (const [provider, externalId] of [
+        ['zap', mappings.zap],
+        ['comic_vine', mappings.comicVine],
+      ] as const)
+        if (
+          externalId &&
+          (await db.get(mappingClash, [input.variantId, provider, externalId]))
+        )
+          throw new Error(
+            'That provider cover was linked to another comic while you were editing. Reload before saving.',
+          );
     throw cause;
   }
 }
