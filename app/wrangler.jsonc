@@ -1,7 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "comics-collection",
-  "main": "@astrojs/cloudflare/entrypoints/server",
+  "main": "./src/worker.ts",
+  "triggers": { "crons": ["*/2 * * * *"] },
+  "vars": { "VALUATION_SCHEDULE_ENABLED": "true" },
   "compatibility_date": "2026-10-11",
 
   "workers_dev": true,

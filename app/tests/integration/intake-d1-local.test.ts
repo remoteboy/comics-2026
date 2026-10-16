@@ -16,6 +16,7 @@ const { Miniflare, convertV4MiniflareOptions } = createRequire(
 )('miniflare');
 import { D1Database, type D1DatabaseLike } from '@/db/cloudflare/d1-database';
 import { saveIntake } from '@/features/intake/save';
+import { runScheduledValuations } from '@/features/valuation/scheduled';
 import { changeCopyArchive } from '@/features/collection/copy-archive';
 import { getEditableCopy } from '@/features/collection/copy-edit';
 import {
@@ -308,6 +309,23 @@ it('runs the real intake batches on local D1, including replay, reuse and quote 
         'SELECT * FROM price_snapshots WHERE holding_id=1 ORDER BY id',
       ),
     ).toEqual(history);
+    const scheduled = await runScheduledValuations({
+      db,
+      client: intakeClient(),
+      scheduledTime: Date.parse('2026-10-16T10:00:00.000Z'),
+      now: () => new Date('2026-10-16T10:00:00.000Z'),
+    });
+    expect(scheduled.status).toBe('success');
+    expect(
+      (
+        await runScheduledValuations({
+          db,
+          client: intakeClient(),
+          scheduledTime: Date.parse('2026-10-16T10:00:00.000Z'),
+          now: () => new Date('2026-10-16T10:00:00.000Z'),
+        })
+      ).status,
+    ).toBe('skipped');
   } finally {
     await mf.dispose();
   }

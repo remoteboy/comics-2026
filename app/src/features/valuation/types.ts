@@ -89,7 +89,7 @@ export interface ValuationSyncRun {
 }
 
 export interface ValuationSyncStats {
-  mode: 'recent' | 'backfill';
+  mode: 'recent' | 'backfill' | 'scheduled';
   pages: number;
   providerRequests: number;
   providerRows: number;

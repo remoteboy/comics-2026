@@ -6,7 +6,15 @@ import { refreshZapValuationBackfill } from '@/features/valuation/sync';
 
 export const prerender = false;
 
-export const POST: APIRoute = async () => {
+export const POST: APIRoute = async ({ request, url }) => {
+  if (
+    request.headers.get('origin') !== url.origin ||
+    request.headers.get('sec-fetch-site') === 'cross-site'
+  )
+    return Response.json(
+      { error: 'Reload Valuations before submitting.' },
+      { status: 403 },
+    );
   const configuration = getZapConfigurationStatus();
 
   if (!configuration.configured) {

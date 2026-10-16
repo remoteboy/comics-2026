@@ -30,7 +30,10 @@
     "build:cloudflare": "astro build --config astro.cloudflare.config.mjs",
     "deploy": "yarn build:cloudflare && wrangler deploy --config dist/server/wrangler.json",
     "cf:types": "wrangler types --config wrangler.jsonc",
-    "d1:migrate": "wrangler d1 migrations apply COMICS_DB --remote --config wrangler.jsonc"
+    "d1:migrate": "wrangler d1 migrations apply COMICS_DB --remote --config wrangler.jsonc",
+    "backup:create": "node scripts/collection-backup.mjs create",
+    "backup:verify": "node scripts/collection-backup.mjs verify",
+    "backup:restore": "node scripts/collection-backup.mjs restore"
   },
   "dependencies": {
     "@astrojs/cloudflare": "14.3.4",

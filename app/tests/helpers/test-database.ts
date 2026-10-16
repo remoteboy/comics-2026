@@ -35,6 +35,10 @@ const migrations = [
     import.meta.url,
   ),
   new URL('../../../d1/migrations/0012_copy_archiving.sql', import.meta.url),
+  new URL(
+    '../../../d1/migrations/0013_scheduled_valuations.sql',
+    import.meta.url,
+  ),
 ].map((url) => readFileSync(url, 'utf8'));
 const seed = readFileSync(
   new URL('../fixtures/test-data.sql', import.meta.url),

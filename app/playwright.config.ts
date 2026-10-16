@@ -42,6 +42,7 @@ export default defineConfig({
     env: {
       ...inheritedEnv,
       COMICS_DB_PATH: testDatabase,
+      VALUATION_SCHEDULE_ENABLED: 'false',
       COVER_UPLOAD_ROOT: resolve('.test/covers'),
       ZAP_SUPABASE_PUBLISHABLE_KEY: '',
       ZAP_ACCESS_TOKEN: '',

@@ -103,6 +103,10 @@ async function applyRawPrice(
   stats: ValuationSyncStats,
   db: MutationDatabase,
 ): Promise<void> {
+  if (!Number.isSafeInteger(nmPriceCents) || nmPriceCents < 0) {
+    stats.skippedHoldings += targets.length;
+    return;
+  }
   for (const target of targets) {
     const valuation = valueAtGrade(
       nmPriceCents,
@@ -110,7 +114,11 @@ async function applyRawPrice(
       conditions,
     );
 
-    if (!valuation) {
+    if (
+      !valuation ||
+      !Number.isSafeInteger(valuation.priceCents) ||
+      valuation.priceCents < 0
+    ) {
       stats.skippedHoldings += 1;
       continue;
     }
