@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { groupBy } from '@/lib/collections';
 import {
+  formatOperationTime,
   formatGrade,
   formatInteger,
   formatLegacyDateTime,
@@ -12,6 +13,12 @@ import {
 import { positiveInt } from '@/lib/pagination';
 
 describe('format helpers', () => {
+  it('shows operational timestamps in Dublin time including daylight saving', () => {
+    expect(formatOperationTime('2026-10-16 13:30:27')).toContain('14:30:27');
+    expect(formatOperationTime('2026-12-16T13:30:27Z')).toContain('13:30:27');
+    expect(formatOperationTime(null)).toBe('—');
+    expect(formatOperationTime('invalid')).toBe('invalid');
+  });
   it('formats money and signed deltas', () => {
     expect(formatMoney(1234)).toBe('$12.34');
     expect(formatMoney(null)).toBe('—');

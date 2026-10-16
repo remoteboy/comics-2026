@@ -1,5 +1,8 @@
 ---
 import AppLayout from '@/components/AppLayout.astro';
+import { scheduledValuationState } from '@/features/valuation/scheduled';
+import { runtimeEnvironment } from '@/platform/runtime-env';
+import { sameOriginWrite } from '@/features/collection/write-form';
 import PageHeader from '@/components/PageHeader.astro';
 import SectionHeader from '@/components/SectionHeader.astro';
 import { getZapConfigurationStatus } from '@/features/providers/zap-status';
@@ -17,13 +20,17 @@ import {
   syncRecentZapValuations,
 } from '@/features/valuation/sync';
 import type { ValuationSyncResult } from '@/features/valuation/types';
-import { formatDateTime, formatInteger } from '@/lib/format';
+import { formatOperationTime, formatInteger } from '@/lib/format';
 
 const configuration = getZapConfigurationStatus();
 let syncResult: ValuationSyncResult | null = null;
 let syncError: string | null = null;
 
 if (Astro.request.method === 'POST') {
+  if (!sameOriginWrite(Astro.request, Astro.url))
+    return new Response('Reload Valuations before submitting.', {
+      status: 403,
+    });
   const data = await Astro.request.formData();
   const action = data.get('action');
 
@@ -46,131 +53,170 @@ const [summary, backfill, movements, runs] = await Promise.all([
   listValuationMovements(20),
   listValuationSyncRuns(10),
 ]);
+const scheduled = await scheduledValuationState();
+const automatic = runtimeEnvironment().VALUATION_SCHEDULE_ENABLED === 'true';
 ---
 
 <AppLayout title="Valuations">
   <PageHeader
     title="Valuations"
     eyebrow="Market tracking"
-    description="Live Zap valuation freshness, movement windows and provider-sync history."
+    description="Collection values, automatic refresh status and recent activity."
   />
 
   <div class="mb-7 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-4 text-sm text-zinc-400">
-    <p>
-      Live raw-comic values start from Zap's current NM price and apply the
-      condition multiplier for each holding's actual grade. One provider price
-      is fetched per unique Zap variant, then fanned out across every owned copy
-      independently.
+    <p class="mb-3 text-zinc-300">
+      Automatic refresh:{' '}
+      {automatic
+        ? scheduled?.status === 'waiting'
+          ? 'waiting for its first scheduled run'
+          : scheduled?.status === 'success'
+            ? 'last check succeeded'
+            : scheduled?.status === 'partial'
+              ? 'last check completed with issues'
+              : scheduled?.status === 'failed'
+                ? 'last check failed'
+                : (scheduled?.status ?? 'waiting')
+        : 'disabled in this environment'}
+      .
     </p>
-    <p class="mt-2 text-xs text-zinc-600">
-      Legacy values remain explicit fallbacks until the baseline sweep checks
-      that Zap variant; a legitimate missing provider price is recorded so the
-      sweep can finish without retrying it forever.
-    </p>
+    {automatic && (
+      <p class="mb-3 text-xs">
+        Updates stale or missing prices automatically, using each copy’s grade.{' '}
+        {scheduled?.completedAt &&
+          `Last completed ${formatOperationTime(scheduled.completedAt)} (Dublin time).`}
+      </p>
+    )}
+    {scheduled?.errorText && (
+      <p class="mb-3 text-amber-300">{scheduled.errorText}</p>
+    )}
+    <details class="text-xs text-zinc-500">
+      <summary class="cursor-pointer text-zinc-300">
+        How values are calculated
+      </summary>
+      <p class="mt-2">
+        Zap prices are adjusted for each copy’s grade. Existing values are kept
+        when a new price is unavailable. Older imported values remain labelled
+        as legacy fallbacks.
+      </p>
+    </details>
   </div>
 
   <ValuationHealth summary={summary} />
 
-  <section class="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-    <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-      <div>
-        <h2 class="font-semibold text-white">Full valuation baseline</h2>
-        <p class="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">
-          Work through each unique owned Zap variant once. Copies at different
-          grades share the provider fetch but receive separate holding values
-          and snapshots.
-        </p>
-      </div>
-
-      {configuration.configured ? (
-        <div class="flex flex-wrap gap-2">
-          <form method="post">
-            <input type="hidden" name="action" value="backfill-zap" />
-            <button
-              type="submit"
-              class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
-            >
-              Refresh next 50 variants
-            </button>
-          </form>
-          <button
-            type="button"
-            data-full-baseline
-            data-pending={backfill.pendingVariants}
-            class="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={backfill.pendingVariants === 0}
-          >
-            Run full baseline sync
-          </button>
+  <details class="mt-6 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+    <summary class="cursor-pointer font-semibold text-white">
+      <span>Full valuation baseline</span>{' '}
+      <span class="ml-2 text-sm font-normal text-zinc-400">
+        {backfill.pendingVariants === 0
+          ? 'Initial checks complete'
+          : `${formatInteger(backfill.pendingVariants)} covers pending`}
+      </span>
+    </summary>
+    <div class="mt-5">
+      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 class="font-semibold text-white">Initial collection check</h2>
+          <p class="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">
+            Work through each unique owned Zap variant once. Copies at different
+            grades share the provider fetch but receive separate holding values
+            and snapshots.
+          </p>
         </div>
-      ) : (
-        <a
-          href="/providers"
-          class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white"
-        >
-          Configure Zap
-        </a>
+
+        {configuration.configured ? (
+          <div class="flex flex-wrap gap-2">
+            <form method="post">
+              <input type="hidden" name="action" value="backfill-zap" />
+              <button
+                type="submit"
+                class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-zinc-500 hover:text-white"
+              >
+                Refresh next 50 variants
+              </button>
+            </form>
+            <button
+              type="button"
+              data-full-baseline
+              data-pending={backfill.pendingVariants}
+              class="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={backfill.pendingVariants === 0}
+            >
+              Run full baseline sync
+            </button>
+          </div>
+        ) : (
+          <a
+            href="/providers"
+            class="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white"
+          >
+            Configure Zap
+          </a>
+        )}
+      </div>
+
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
+          <p class="text-xs text-zinc-600">Unique Zap variants</p>
+          <p class="mt-1 text-lg font-semibold text-zinc-200">
+            {formatInteger(backfill.totalZapVariants)}
+          </p>
+        </div>
+        <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
+          <p class="text-xs text-zinc-600">Still pending</p>
+          <p
+            class="mt-1 text-lg font-semibold text-zinc-200"
+            data-pending-count
+          >
+            {formatInteger(backfill.pendingVariants)}
+          </p>
+        </div>
+        <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
+          <p class="text-xs text-zinc-600">Checked with no Zap price</p>
+          <p class="mt-1 text-lg font-semibold text-zinc-200">
+            {formatInteger(backfill.noPriceVariants)}
+          </p>
+        </div>
+        <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
+          <p class="text-xs text-zinc-600">Mapped legacy holdings</p>
+          <p class="mt-1 text-lg font-semibold text-zinc-200">
+            {formatInteger(backfill.legacyMappedHoldings)}
+          </p>
+        </div>
+      </div>
+
+      {(backfill.unresolvedVariants > 0 ||
+        backfill.failedVariants > 0 ||
+        backfill.unmappedHoldings > 0) && (
+        <p class="mt-4 text-xs leading-5 text-zinc-600">
+          {backfill.unresolvedVariants > 0 &&
+            `${formatInteger(backfill.unresolvedVariants)} checked variants still have holdings that cannot be valued at their recorded grade. `}
+          {backfill.failedVariants > 0 &&
+            `${formatInteger(backfill.failedVariants)} provider lookups currently need retrying. `}
+          {backfill.unmappedHoldings > 0 &&
+            `${formatInteger(backfill.unmappedHoldings)} holdings have no Zap variant ID and cannot be covered by this sweep.`}
+        </p>
       )}
-    </div>
 
-    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
-        <p class="text-xs text-zinc-600">Unique Zap variants</p>
-        <p class="mt-1 text-lg font-semibold text-zinc-200">
-          {formatInteger(backfill.totalZapVariants)}
-        </p>
-      </div>
-      <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
-        <p class="text-xs text-zinc-600">Still pending</p>
-        <p class="mt-1 text-lg font-semibold text-zinc-200" data-pending-count>
-          {formatInteger(backfill.pendingVariants)}
-        </p>
-      </div>
-      <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
-        <p class="text-xs text-zinc-600">Checked with no Zap price</p>
-        <p class="mt-1 text-lg font-semibold text-zinc-200">
-          {formatInteger(backfill.noPriceVariants)}
-        </p>
-      </div>
-      <div class="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3">
-        <p class="text-xs text-zinc-600">Mapped legacy holdings</p>
-        <p class="mt-1 text-lg font-semibold text-zinc-200">
-          {formatInteger(backfill.legacyMappedHoldings)}
-        </p>
-      </div>
-    </div>
-
-    {(backfill.unresolvedVariants > 0 ||
-      backfill.failedVariants > 0 ||
-      backfill.unmappedHoldings > 0) && (
-      <p class="mt-4 text-xs leading-5 text-zinc-600">
-        {backfill.unresolvedVariants > 0 &&
-          `${formatInteger(backfill.unresolvedVariants)} checked variants still have holdings that cannot be valued at their recorded grade. `}
-        {backfill.failedVariants > 0 &&
-          `${formatInteger(backfill.failedVariants)} provider lookups currently need retrying. `}
-        {backfill.unmappedHoldings > 0 &&
-          `${formatInteger(backfill.unmappedHoldings)} holdings have no Zap variant ID and cannot be covered by this sweep.`}
+      <p
+        class="mt-4 text-sm text-zinc-500"
+        data-baseline-status
+        aria-live="polite"
+      >
+        {backfill.pendingVariants === 0
+          ? 'Baseline provider checks are complete.'
+          : 'The full sync is resumable: closing this page does not lose completed checks.'}
       </p>
-    )}
-
-    <p
-      class="mt-4 text-sm text-zinc-500"
-      data-baseline-status
-      aria-live="polite"
-    >
-      {backfill.pendingVariants === 0
-        ? 'Baseline provider checks are complete.'
-        : 'The full sync is resumable: closing this page does not lose completed checks.'}
-    </p>
-  </section>
+    </div>
+  </details>
 
   <section class="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h2 class="font-semibold text-white">Recent Zap changes</h2>
         <p class="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">
-          Pull the capped database-wide change feed and immediately refresh any
-          owned variants that appear in it.
+          Check Zap’s latest reported price changes for comics you own.
+          Automatic refresh continues in the background.
         </p>
       </div>
       {configuration.configured && (
@@ -205,26 +251,34 @@ const [summary, backfill, movements, runs] = await Promise.all([
 
     {summary.latestRefreshAt && (
       <p class="mt-4 text-xs text-zinc-600">
-        Latest live refresh: {formatDateTime(summary.latestRefreshAt)}
+        Latest live refresh: {formatOperationTime(summary.latestRefreshAt)}
       </p>
     )}
   </section>
 
-  <section class="mt-10">
-    <SectionHeader
-      title="Movement windows"
-      description="Current live price compared with the closest stored snapshot at least 30 days old, 90 days old and the earliest recovered observation where available."
-    />
-    <ValuationMovers items={movements} />
-  </section>
-
-  <section class="mt-10">
+  <section class="mt-8">
     <SectionHeader
       title="Provider sync history"
-      description="Each live valuation refresh records a provider run and its outcome."
+      description="Latest refresh activity. Times shown in Dublin time; automatic checks run every two minutes."
     />
     <SyncHistory runs={runs} />
   </section>
+
+  <details class="mt-8 rounded-xl border border-zinc-800 p-5">
+    <summary class="cursor-pointer font-semibold text-white">
+      Movement windows{' '}
+      <span class="ml-2 text-sm font-normal text-zinc-400">
+        Compare current values with past prices
+      </span>
+    </summary>
+    <div class="mt-4">
+      <p class="mb-4 text-sm text-zinc-400">
+        Current values compared with snapshots at least 30 days and 90 days old,
+        and the earliest available price. Missing history is shown as a dash.
+      </p>
+      <ValuationMovers items={movements} />
+    </div>
+  </details>
 </AppLayout>
 
 <script>

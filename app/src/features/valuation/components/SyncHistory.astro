@@ -1,40 +1,106 @@
 ---
 import type { ValuationSyncRun } from '@/features/valuation/types';
-import { formatDateTime } from '@/lib/format';
+import { formatOperationTime } from '@/lib/format';
 
 interface Props {
   runs: ValuationSyncRun[];
 }
 
 const { runs } = Astro.props;
+function details(run: ValuationSyncRun) {
+  try {
+    const stats = JSON.parse(run.statsJson ?? '{}');
+    return {
+      label:
+        stats.mode === 'scheduled'
+          ? 'Scheduled refresh'
+          : stats.mode === 'backfill'
+            ? 'Initial collection check'
+            : stats.mode === 'recent'
+              ? 'Recent price changes'
+              : 'Zap refresh',
+      summary: [
+        'selectedVariants',
+        'refreshedHoldings',
+        'failedVariants',
+      ].every((key) => Number.isSafeInteger(stats[key]))
+        ? `${stats.selectedVariants} covers selected · ${stats.refreshedHoldings} copy groups refreshed · ${stats.failedVariants} failed`
+        : '',
+    };
+  } catch {
+    return { label: 'Zap refresh', summary: '' };
+  }
+}
 ---
 
-<div class="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
-  {runs.length ? (
-    runs.map((run) => (
-      <div class="flex flex-col gap-1 border-b border-zinc-900 px-4 py-3 text-sm last:border-0 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="font-medium text-zinc-200">
-            Zap sync #{run.id} · {run.status}
-          </p>
-          <p class="mt-0.5 text-xs text-zinc-600">
-            Started {formatDateTime(run.startedAt)}
-          </p>
-        </div>
-        {run.errorText ? (
-          <p class="max-w-xl text-xs text-rose-400">{run.errorText}</p>
-        ) : (
-          <p class="text-xs text-zinc-600">
-            {run.completedAt
-              ? `Completed ${formatDateTime(run.completedAt)}`
-              : 'Running'}
-          </p>
-        )}
-      </div>
-    ))
-  ) : (
-    <p class="px-4 py-5 text-sm text-zinc-500">
-      No valuation syncs recorded yet.
-    </p>
-  )}
-</div>
+{runs.length ? (
+  <div class="space-y-3">
+    {[runs.slice(0, 5), runs.slice(5)].map(
+      (group, index) =>
+        group.length > 0 && (
+          <details
+            open={index === 0}
+            class="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950"
+          >
+            <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-300">
+              {index === 0
+                ? `Latest ${group.length} refreshes`
+                : `${group.length} older refreshes`}
+            </summary>
+            {group.map((run) => (
+              <div class="border-t border-zinc-900 px-4 py-3 text-sm sm:flex sm:items-start sm:justify-between sm:gap-4">
+                <div>
+                  <p class="font-medium text-zinc-200">
+                    {details(run).label}{' '}
+                    <span class="text-zinc-500">#{run.id}</span>
+                  </p>
+                  <p class="mt-1 text-xs text-zinc-400">
+                    Started {formatOperationTime(run.startedAt)}
+                  </p>
+                  {details(run).summary && (
+                    <p class="mt-1 text-xs text-zinc-400">
+                      {details(run).summary}
+                    </p>
+                  )}
+                  {run.errorText && (
+                    <p class="mt-2 max-w-xl text-xs text-rose-300">
+                      {run.errorText}
+                    </p>
+                  )}
+                </div>
+                <div class="mt-2 sm:mt-0 sm:text-right">
+                  <p
+                    class:list={[
+                      'text-xs font-semibold',
+                      run.status === 'success'
+                        ? 'text-emerald-300'
+                        : run.status === 'running'
+                          ? 'text-zinc-300'
+                          : 'text-amber-300',
+                    ]}
+                  >
+                    {run.status === 'success'
+                      ? 'Completed successfully'
+                      : run.status === 'partial'
+                        ? 'Completed with issues'
+                        : run.status === 'failed'
+                          ? 'Failed'
+                          : run.status}
+                  </p>
+                  {run.completedAt && (
+                    <p class="mt-1 text-xs text-zinc-400">
+                      Completed {formatOperationTime(run.completedAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </details>
+        ),
+    )}
+  </div>
+) : (
+  <p class="rounded-xl border border-zinc-800 p-4 text-sm text-zinc-400">
+    No valuation syncs recorded yet.
+  </p>
+)}

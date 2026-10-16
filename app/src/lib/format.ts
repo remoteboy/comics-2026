@@ -49,3 +49,23 @@ export function formatDateTime(value: string | null | undefined): string {
 export function formatLegacyDateTime(value: string | null | undefined): string {
   return formatDateTime(value);
 }
+
+/** Operational timestamps use the collection owner's local timezone. */
+export function formatOperationTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  const normalized = value.includes('T')
+    ? value
+    : `${value.replace(' ', 'T')}Z`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat('en-IE', {
+    timeZone: 'Europe/Dublin',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(parsed);
+}
