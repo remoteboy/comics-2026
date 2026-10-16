@@ -21,14 +21,24 @@ import { formatMoney } from '@/lib/format';
 const boxes = await listBoxOptions();
 const id = Number(Astro.params.id);
 const query = Astro.url.searchParams.get('q')?.trim().slice(0, 200) ?? '';
+const issueType =
+  Astro.url.searchParams.get('type') === 'annual'
+    ? 'annual'
+    : Astro.url.searchParams.get('type') === 'issue'
+      ? 'issue'
+      : 'all';
 const view = Astro.url.searchParams.get('view') === 'list' ? 'list' : 'covers';
 
-const [series, holdings, seriesBoxes, allHoldings] = await Promise.all([
+const [series, matchingHoldings, seriesBoxes, allHoldings] = await Promise.all([
   getSeries(id),
   listSeriesHoldings(id, query),
   listSeriesBoxes(id),
-  query ? listSeriesHoldings(id) : Promise.resolve(null),
+  query || issueType !== 'all' ? listSeriesHoldings(id) : Promise.resolve(null),
 ]);
+
+const holdings = matchingHoldings.filter(
+  (item) => issueType === 'all' || item.issueType === issueType,
+);
 
 if (!series) return Astro.redirect('/collection');
 
@@ -50,6 +60,7 @@ function viewUrl(nextView: 'covers' | 'list', clear = false): string {
 
   if (nextView === 'list') params.set('view', 'list');
   if (query && !clear) params.set('q', query);
+  if (issueType !== 'all' && !clear) params.set('type', issueType);
 
   const suffix = params.toString();
 
@@ -244,6 +255,23 @@ function viewUrl(nextView: 'covers' | 'list', clear = false): string {
       </TitleAutocomplete>
     </div>
 
+    <label>
+      <span class="sr-only">Issue type</span>
+      <select
+        name="type"
+        class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white"
+      >
+        <option value="all" selected={issueType === 'all'}>
+          All issues
+        </option>
+        <option value="issue" selected={issueType === 'issue'}>
+          Regular issues
+        </option>
+        <option value="annual" selected={issueType === 'annual'}>
+          Annuals
+        </option>
+      </select>
+    </label>
     <div class="flex gap-2">
       <button
         data-series-apply
@@ -255,7 +283,7 @@ function viewUrl(nextView: 'covers' | 'list', clear = false): string {
       <a
         href={viewUrl(view, true)}
         data-series-clear
-        hidden={!query}
+        hidden={!query && issueType === 'all'}
         class="rounded-lg border border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-white"
       >
         Clear
@@ -293,12 +321,13 @@ function viewUrl(nextView: 'covers' | 'list', clear = false): string {
 <script>
   const form = document.querySelector<HTMLFormElement>('[data-series-filter]');
   const input = form?.querySelector<HTMLInputElement>('[name="q"]');
+  const type = form?.querySelector<HTMLSelectElement>('[name="type"]');
   const results = document.querySelector<HTMLElement>('[data-series-results]');
   const message = document.querySelector<HTMLElement>(
     '[data-series-filter-message]',
   );
   const clear = form?.querySelector<HTMLAnchorElement>('[data-series-clear]');
-  if (form && input && results && message && clear) {
+  if (form && input && type && results && message && clear) {
     let timer: ReturnType<typeof setTimeout>;
     let controller: AbortController | undefined;
     let version = 0;
@@ -309,10 +338,12 @@ function viewUrl(nextView: 'covers' | 'list', clear = false): string {
       const requestVersion = ++version;
       if (composing) return;
       const q = input.value.trim();
-      clear.hidden = !q;
+      clear.hidden = !q && type.value === 'all';
       const url = new URL(location.href);
       if (q) url.searchParams.set('q', q);
       else url.searchParams.delete('q');
+      if (type.value !== 'all') url.searchParams.set('type', type.value);
+      else url.searchParams.delete('type');
       url.searchParams.delete('moved');
       url.searchParams.delete('seriesSaved');
       message.textContent = 'Updating comics…';
@@ -339,12 +370,17 @@ function viewUrl(nextView: 'covers' | 'list', clear = false): string {
             ) {
               if (q) target.searchParams.set('q', q);
               else target.searchParams.delete('q');
+              if (type.value !== 'all')
+                target.searchParams.set('type', type.value);
+              else target.searchParams.delete('type');
               link.href = target.toString();
             }
           }
           message.textContent = q
             ? `Showing comics matching “${q}”.`
-            : 'Showing all comics in this series.';
+            : type.value === 'all'
+              ? 'Showing all comics in this series.'
+              : `Showing ${type.value === 'annual' ? 'annuals' : 'regular issues'} in this series.`;
         } catch (cause) {
           if (
             requestVersion !== version ||
@@ -359,6 +395,7 @@ function viewUrl(nextView: 'covers' | 'list', clear = false): string {
       }, 250);
     };
     form.querySelector<HTMLButtonElement>('[data-series-apply]')!.hidden = true;
+    type.addEventListener('change', update);
     input.addEventListener('input', update);
     input.addEventListener('compositionstart', () => {
       composing = true;
@@ -372,6 +409,7 @@ function viewUrl(nextView: 'covers' | 'list', clear = false): string {
     });
     clear.addEventListener('click', (event) => {
       event.preventDefault();
+      type.value = 'all';
       input.value = '';
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.focus();

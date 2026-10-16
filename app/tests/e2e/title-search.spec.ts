@@ -96,3 +96,17 @@ test('mobile intake search preserves the form when provider suggestions fail', a
     ),
   ).toBe(true);
 });
+
+test('collection page search offers keyboard title autocomplete', async ({
+  page,
+}) => {
+  await page.goto('/collection');
+  const input = page.getByRole('combobox', { name: 'Search', exact: true });
+  await input.fill('alpha');
+  await expect(
+    page.getByRole('option', { name: /Alpha Adventures/ }),
+  ).toBeVisible();
+  await input.press('ArrowDown');
+  await input.press('Enter');
+  await expect(page).toHaveURL(/\/collection\/1$/);
+});

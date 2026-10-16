@@ -270,6 +270,27 @@ test('series search matches Annual and its box link scopes the contents to that 
   ).toBeVisible();
   await expect(page.getByRole('option', { name: /Annual 1/ })).toBeVisible();
   await page
+    .getByRole('combobox', { name: 'Issue type', exact: true })
+    .selectOption('issue');
+  await expect(
+    page
+      .locator('[data-series-results]')
+      .getByText('No matching comics', { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole('combobox', { name: 'Issue type', exact: true })
+    .selectOption('annual');
+  await expect(
+    page.locator('[data-series-results]').getByText('Annual', { exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/type=annual/);
+  await page.getByRole('link', { name: 'List', exact: true }).click();
+  await expect(page).toHaveURL(/type=annual/);
+  await expect(
+    page.locator('[data-series-results]').getByText('Annual', { exact: true }),
+  ).toBeVisible();
+
+  await page
     .getByRole('navigation', { name: 'Boxes containing this series' })
     .getByRole('link')
     .click();

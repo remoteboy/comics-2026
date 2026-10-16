@@ -16,7 +16,11 @@ export const GET: APIRoute = async ({ url }) => {
       number,
       { label: string; detail: string; href: string }
     >();
-    for (const copy of holdings)
+    const type = url.searchParams.get('type');
+    for (const copy of holdings.filter(
+      (copy) =>
+        !['issue', 'annual'].includes(type ?? '') || copy.issueType === type,
+    ))
       if (copy.quantity > 0 && !covers.has(copy.variantId))
         covers.set(copy.variantId, {
           label: `${copy.issueType === 'annual' ? 'Annual ' : '#'}${copy.issueNumber}`,
